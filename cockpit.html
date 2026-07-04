@@ -1,0 +1,2499 @@
+<!--
+  MY ENGLISH COCKPIT — самодостаточный тренажёр английского.
+  Один файл, весь CSS/JS инлайн, всё состояние в localStorage['english_cockpit_v1'].
+  LLM-вызовы идут в OpenRouter напрямую из браузера (CORS разрешён провайдером).
+  Интерфейс — русский; учебный контент — английский.
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MY ENGLISH COCKPIT</title>
+<style>
+/* ============================ ДИЗАЙН-ТОКЕНЫ ============================
+   Две темы через CSS-переменные с ОДИНАКОВЫМИ именами:
+   :root — тёплая тема Anthropic (ДЕФОЛТ, editorial, кремовый фон + терракот).
+   [data-theme="dark"] — прежний «стеклянный кокпит».
+   Переключатель в шапке меняет только атрибут data-theme на <html>.
+   Разметка и остальной CSS не трогаются — всё завязано на переменные. */
+
+/* --- Общие токены (не зависят от темы) --- */
+:root{
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+  --serif:Georgia,"Times New Roman",serif;
+  --radius:12px;
+}
+
+/* --- ТЁПЛАЯ ТЕМА (Anthropic) — по умолчанию --- */
+:root{
+  --bg:#F0EEE6;             /* кремовый/овсяный фон страницы */
+  --panel:#FBFAF7;          /* почти белые тёплые карточки */
+  --panel-2:#F5F4EE;        /* вложенные блоки */
+  --edge:#E7E2D6;           /* мягкая тёплая рамка */
+  --edge-soft:#EDE9DE;
+  --ink:#1F1E1C;            /* тёмно-графитовый тёплый текст */
+  --ink-dim:#6B6760;        /* вторичный тёплый серый */
+  --ink-faint:#928D83;      /* совсем тихий */
+  --amber:#D97757;          /* фирменный терракот/clay — главный акцент */
+  --amber-strong:#C4613F;   /* hover / нажатие */
+  --amber-glow:rgba(217,119,87,.14);
+  --cyan:#3F6B65;           /* приглушённый тёплый teal — второстепенный акцент/ссылки */
+  --cyan-glow:rgba(63,107,101,.12);
+  --red:#C0503B;            /* тёплая тревога / стрик */
+  --green:#5E8C55;          /* спокойная олива */
+  --violet:#8A6BB0;
+  --font-head:var(--serif); /* editorial: серифные заголовки */
+  --btn-ink:#FFFFFF;        /* текст на терракотовой кнопке */
+  --shadow:0 14px 40px -26px rgba(80,55,30,.4);   /* мягкая тёплая тень */
+  --code-bg:#2B2926;        /* тёплый «терминальный» блок кода */
+  --code-ink:#EDE8DE;
+  --stage-bg:var(--panel-2);/* фон сцены ревью — светлый в тёплой теме */
+  --grid-opacity:.5;
+}
+
+/* --- ТЁМНАЯ ТЕМА (стеклянный кокпит) --- */
+[data-theme="dark"]{
+  --bg:#0a0d12;
+  --panel:#11161d;
+  --panel-2:#161d26;
+  --edge:#232c38;
+  --edge-soft:#1a222c;
+  --ink:#e7edf3;
+  --ink-dim:#8b98a8;
+  --ink-faint:#5b6675;
+  --amber:#f5b942;
+  --amber-strong:#e0a52f;
+  --amber-glow:rgba(245,185,66,.16);
+  --cyan:#49d6c4;
+  --cyan-glow:rgba(73,214,196,.14);
+  --red:#ff6a5a;
+  --green:#5ad17f;
+  --violet:#9a8cff;
+  --font-head:var(--sans); /* в тёмной теме заголовки — как раньше (сан-сериф) */
+  --btn-ink:#1a1206;
+  --shadow:0 18px 50px -22px rgba(0,0,0,.85);
+  --code-bg:#070a0e;
+  --code-ink:#c6d2df;
+  --stage-bg:#070a0e;
+  --grid-opacity:.35;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:
+    radial-gradient(1100px 600px at 82% -10%,var(--amber-glow),transparent 60%),
+    radial-gradient(900px 500px at 8% 6%,var(--cyan-glow),transparent 55%),
+    var(--bg);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:15px;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+  background-attachment:fixed;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(var(--edge-soft) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--edge-soft) 1px,transparent 1px);
+  background-size:44px 44px;
+  opacity:var(--grid-opacity);
+  mask-image:radial-gradient(circle at 50% 30%,#000 0%,transparent 78%);
+}
+.wrap{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:22px 20px 90px}
+
+/* ============================ ТИПОГРАФИКА / ХЕЛПЕРЫ ============================ */
+.mono{font-family:var(--mono)}
+.dim{color:var(--ink-dim)}
+.faint{color:var(--ink-faint)}
+.tiny{font-size:12px}
+.up{text-transform:uppercase;letter-spacing:.14em}
+h1,h2,h3{margin:0;font-weight:650;letter-spacing:-.01em;font-family:var(--font-head)}
+a{color:var(--cyan);text-decoration:none}
+button{font-family:inherit}
+
+/* ============================ ШАПКА ============================ */
+header.hud{
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  padding:18px 22px;margin-bottom:22px;
+  background:linear-gradient(180deg,var(--panel),var(--panel-2));
+  border:1px solid var(--edge);border-radius:var(--radius);
+  box-shadow:var(--shadow);position:relative;overflow:hidden;
+}
+header.hud::after{ /* световая линия сверху, как подсветка панели */
+  content:"";position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--amber),transparent);opacity:.6;
+}
+.brand{display:flex;flex-direction:column;gap:2px;margin-right:auto}
+.brand .logo{
+  font-family:var(--mono);font-size:22px;font-weight:700;letter-spacing:.02em;
+  display:flex;align-items:center;gap:10px;
+}
+.brand .logo .dot{width:11px;height:11px;border-radius:50%;background:var(--amber);
+  box-shadow:0 0 14px 2px var(--amber-glow);animation:pulse 2.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
+.brand .sub{font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-faint)}
+/* переключатель темы 🌙/☀️ */
+.theme-toggle{
+  width:42px;height:42px;flex:0 0 auto;border-radius:11px;cursor:pointer;font-size:19px;line-height:1;
+  border:1px solid var(--edge);background:var(--panel-2);color:var(--ink);
+  display:inline-flex;align-items:center;justify-content:center;transition:.16s border-color,.16s transform,.16s background;
+}
+.theme-toggle:hover{border-color:var(--amber);background:var(--amber-glow)}
+.theme-toggle:active{transform:translateY(1px)}
+
+/* приборы в шапке */
+.gauges{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.gauge{
+  min-width:96px;padding:10px 14px;border:1px solid var(--edge);border-radius:11px;
+  background:var(--panel-2);text-align:center;position:relative;
+}
+.gauge .val{font-family:var(--mono);font-size:24px;font-weight:700;line-height:1}
+.gauge .lbl{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);margin-top:5px}
+.gauge.streak .val{color:var(--red)}
+.gauge.flow .val{color:var(--amber)}
+.gauge.sessions .val{color:var(--cyan)}
+
+/* ============================ СЕКЦИИ / КАРТЫ ============================ */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.col-span{grid-column:1 / -1}
+section.card{
+  background:linear-gradient(180deg,var(--panel),var(--panel-2));
+  border:1px solid var(--edge);border-radius:var(--radius);
+  padding:20px 20px 22px;box-shadow:var(--shadow);position:relative;
+}
+.card > .head{display:flex;align-items:baseline;gap:10px;margin-bottom:16px}
+.card > .head .idx{font-family:var(--mono);font-size:12px;color:var(--amber);
+  border:1px solid var(--edge);border-radius:6px;padding:2px 7px;letter-spacing:.05em}
+.card > .head h2{font-size:16.5px}
+.card > .head .en{font-size:12px;color:var(--ink-faint);font-family:var(--mono);margin-left:auto}
+
+/* ============================ КНОПКИ ============================ */
+.btn{
+  display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+  border:1px solid var(--edge);background:var(--panel-2);color:var(--ink);
+  padding:9px 14px;border-radius:9px;font-size:13.5px;font-weight:550;
+  transition:.16s border-color,.16s background,.16s transform;
+}
+.btn:hover{border-color:var(--ink-faint);background:#1b232e}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--amber);color:var(--btn-ink);border-color:var(--amber);font-weight:650}
+.btn.primary:hover{background:var(--amber-strong);border-color:var(--amber-strong)}
+.btn.cyan{border-color:#2a4a48;color:var(--cyan)}
+.btn.cyan:hover{background:var(--cyan-glow)}
+.btn.ghost{background:transparent}
+.btn.sm{padding:6px 10px;font-size:12px}
+.btn.danger{border-color:#5a2b28;color:var(--red)}
+.btn.danger:hover{background:rgba(255,106,90,.1)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btnrow{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+
+/* ============================ ФОРМЫ ============================ */
+textarea,input[type=text],input[type=password],input[type=number],select{
+  width:100%;background:var(--bg);border:1px solid var(--edge);border-radius:9px;
+  color:var(--ink);font-family:var(--sans);font-size:14px;padding:11px 12px;resize:vertical;
+}
+textarea{min-height:120px;line-height:1.5}
+textarea:focus,input:focus,select:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px var(--amber-glow)}
+label.field{display:block;margin-bottom:6px;font-size:12.5px;color:var(--ink-dim)}
+.field-wrap{margin-bottom:14px}
+
+/* ============================ РОЛЁВКА ============================ */
+.scenario{
+  background:var(--panel-2);border:1px solid var(--edge);border-left:3px solid var(--amber);
+  border-radius:10px;padding:14px 16px;margin-bottom:14px;
+}
+.scenario .title{font-family:var(--mono);font-size:16px;color:var(--amber);font-weight:650}
+.scenario .desc{color:var(--ink-dim);margin-top:5px;font-size:13.5px}
+.scenario .meta{font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
+pre.prompt{
+  background:var(--code-bg);border:1px solid var(--edge);border-radius:10px;
+  padding:14px;font-family:var(--mono);font-size:12px;line-height:1.55;color:var(--code-ink);
+  white-space:pre-wrap;word-break:break-word;max-height:230px;overflow:auto;margin:0;
+}
+
+/* ============================ КАРТОЧКИ-ОШИБКИ ============================ */
+.errcard{
+  background:var(--panel-2);border:1px solid var(--edge);border-radius:10px;
+  padding:12px 14px;margin-bottom:10px;
+}
+.errcard .cloze{font-family:var(--mono);font-size:13.5px;color:var(--ink)}
+.errcard .ans{color:var(--green);font-weight:600}
+.errcard .exp{color:var(--ink-dim);font-size:12.5px;margin-top:6px}
+.errcard .row{display:flex;gap:8px;align-items:center;margin-top:9px;flex-wrap:wrap}
+
+/* секции разбора аудитора */
+.audit-sec{margin-bottom:18px}
+.audit-sec-h{display:flex;align-items:center;gap:10px;margin-bottom:9px;
+  font-family:var(--font-head);font-size:15px;font-weight:650}
+.audit-sec-h > span:first-child{margin-right:auto}
+.aloud{display:flex;flex-direction:column;gap:8px}
+.aloud-item{background:var(--panel-2);border:1px solid var(--edge);border-left:3px solid var(--cyan);
+  border-radius:9px;padding:11px 13px;font-size:14.5px;line-height:1.5}
+.pattern{background:var(--amber-glow);border:1px solid var(--edge);border-radius:9px;
+  padding:11px 13px;font-size:14px;color:var(--ink)}
+
+/* indeterminate прогресс-бар на время LLM-вызова */
+.progress{padding:20px 4px}
+.progress-bar{height:6px;border-radius:4px;background:var(--edge);overflow:hidden;position:relative}
+.progress-ind{position:absolute;top:0;height:100%;width:38%;border-radius:4px;
+  background:linear-gradient(90deg,transparent,var(--amber),transparent);animation:indet 1.15s ease-in-out infinite}
+@keyframes indet{0%{left:-38%}100%{left:100%}}
+.progress-status{margin-top:10px;font-size:12.5px;color:var(--ink-dim);text-align:center}
+
+/* тулбар переключения вида разбора (колода / список) */
+.audit-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.seg{display:inline-flex;border:1px solid var(--edge);border-radius:9px;overflow:hidden}
+.seg-btn{border:none;background:transparent;color:var(--ink-dim);padding:6px 12px;font-size:12.5px;cursor:pointer}
+.seg-btn.on{background:var(--amber);color:var(--btn-ink);font-weight:600}
+
+/* КОЛОДА карточек */
+.deck{display:flex;justify-content:center}
+.deck-card{width:100%;max-width:560px;background:var(--panel-2);border:1px solid var(--edge);
+  border-radius:14px;padding:18px 18px 14px;box-shadow:var(--shadow);
+  animation:deckIn .22s ease}
+@keyframes deckIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.deck-kicker{font-family:var(--font-head);font-size:15px;font-weight:650;margin-bottom:10px}
+.deck-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.deck-counter{font-size:12px;color:var(--ink-faint)}
+.deck-prog{height:4px;border-radius:3px;background:var(--edge);overflow:hidden;margin-bottom:14px}
+.deck-prog-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--amber),var(--amber-strong));transition:width .2s}
+.deck-body{min-height:96px;font-size:15px;line-height:1.55}
+.deck-body .cloze{font-family:var(--mono);font-size:15px}
+.deck-actions{display:flex;gap:9px;margin-top:16px}
+.deck-actions .btn{flex:1;justify-content:center}
+.deck-status{margin-top:16px;text-align:center;font-weight:600;font-size:13.5px;padding:9px;border-radius:9px}
+.deck-status.added{background:rgba(94,140,85,.16);color:var(--green)}
+.deck-status.skipped{background:var(--edge-soft);color:var(--ink-dim)}
+.deck-nav{display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:10px}
+.deck-nav .btn{min-width:44px;justify-content:center}
+.sum-row{font-size:15px;margin:6px 0}
+.sum-n{font-family:var(--mono);font-size:22px;font-weight:700;margin-right:8px}
+
+/* бейджи категорий карточек */
+.cat{display:inline-block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+  padding:2px 8px;border-radius:20px;border:1px solid transparent;font-family:var(--sans);font-weight:600}
+.cat-error{background:rgba(192,80,59,.14);color:var(--red);border-color:rgba(192,80,59,.3)}
+.cat-vocab{background:var(--cyan-glow);color:var(--cyan);border-color:rgba(63,107,101,.3)}
+.cat-idiom{background:var(--amber-glow);color:var(--amber-strong);border-color:rgba(217,119,87,.35)}
+.cat-connector{background:rgba(138,107,176,.14);color:var(--violet);border-color:rgba(138,107,176,.32)}
+.cat-leech{background:var(--edge-soft);color:var(--ink-dim);border-color:var(--edge)}
+
+/* ---- SGR-оценка разговора ---- */
+.eval-card{background:var(--panel-2);border:1px solid var(--edge);border-radius:12px;padding:16px}
+.eval-top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.eval-score{text-align:center;min-width:110px}
+.eval-num{font-size:46px;font-weight:700;line-height:1;color:var(--amber)}
+.eval-num-l{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin-top:3px}
+.cefr-badge{display:inline-block;font-family:var(--mono);font-weight:700;font-size:16px;letter-spacing:.05em;
+  padding:5px 14px;border-radius:9px;background:var(--cyan-glow);color:var(--cyan);border:1px solid var(--edge)}
+.eval-summary{flex:1;min-width:180px;font-size:13.5px;color:var(--ink-dim);line-height:1.5}
+.crit-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px}
+@media(max-width:560px){.crit-grid{grid-template-columns:1fr}}
+.crit-h{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}
+.crit-bar{height:7px;border-radius:4px;background:var(--edge);overflow:hidden}
+.crit-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--amber),var(--amber-strong))}
+.crit-more{margin-top:5px}
+.crit-more summary{cursor:pointer;font-size:11.5px;color:var(--ink-faint)}
+.crit-reason{font-size:12.5px;color:var(--ink-dim);margin-top:6px;line-height:1.5}
+.crit-ev{font-size:12.5px;color:var(--ink);margin-top:5px;padding-left:9px;border-left:2px solid var(--cyan);font-style:italic}
+.eval-notes{margin-top:14px;display:flex;flex-direction:column;gap:7px;font-size:13.5px}
+.eval-tag{display:inline-block;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;
+  padding:2px 8px;border-radius:20px;margin-right:6px}
+.eval-tag.good{background:rgba(94,140,85,.16);color:var(--green)}
+.eval-tag.warn{background:var(--amber-glow);color:var(--amber-strong)}
+.eval-verdict{margin-top:4px;font-family:var(--font-head);font-size:15px}
+/* мини-бары критериев в телеметрии */
+.ecb-row{display:flex;gap:10px;align-items:flex-end;height:96px;margin-top:6px}
+.ecb{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;height:100%}
+.ecb-bar{flex:1;width:100%;max-width:34px;background:var(--edge);border-radius:4px 4px 0 0;display:flex;align-items:flex-end;overflow:hidden}
+.ecb-fill{width:100%;background:linear-gradient(180deg,var(--cyan),#2f544f);border-radius:4px 4px 0 0}
+.ecb-l{font-size:9.5px;color:var(--ink-faint);text-align:center;line-height:1.25}
+.delta-up{color:var(--green);font-weight:600}
+.delta-down{color:var(--red);font-weight:600}
+
+/* ============================ SRS БАНК ============================ */
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.stat{flex:1;min-width:90px;background:var(--panel-2);border:1px solid var(--edge);
+  border-radius:10px;padding:12px;text-align:center}
+.stat .n{font-family:var(--mono);font-size:26px;font-weight:700}
+.stat .l{font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.1em;margin-top:3px}
+.stat.due .n{color:var(--amber)}
+.stat.mastered .n{color:var(--green)}
+
+/* режим ревью */
+#reviewStage{margin-top:16px;padding:20px;background:var(--stage-bg);border:1px solid var(--edge);border-radius:12px;display:none}
+#reviewStage.active{display:block}
+.review-cloze{font-family:var(--mono);font-size:19px;line-height:1.5;color:var(--ink);text-align:center;padding:14px 4px}
+.review-answer{text-align:center;margin-top:8px}
+.review-answer .a{font-family:var(--mono);font-size:20px;color:var(--green);font-weight:700}
+.review-answer .e{color:var(--ink-dim);font-size:13px;margin-top:8px}
+.grade-row{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:16px}
+.grade-row .btn{justify-content:center;flex-direction:column;gap:2px;padding:11px 6px}
+.grade-row .btn small{font-family:var(--mono);font-size:10px;color:var(--ink-faint)}
+.review-progress{text-align:center;font-family:var(--mono);font-size:12px;color:var(--ink-faint);margin-bottom:6px}
+
+/* ============================ WRITING COACH ============================ */
+.coach-out{margin-top:14px;display:none}
+.coach-out.active{display:block}
+.coach-block{background:var(--panel-2);border:1px solid var(--edge);border-radius:10px;padding:14px;margin-bottom:12px}
+.coach-block h3{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--cyan);margin-bottom:8px}
+.coach-block .edited{font-size:14.5px;line-height:1.6}
+.coach-block ul{margin:0;padding-left:18px}
+.coach-block li{margin-bottom:6px;color:var(--ink-dim);font-size:13.5px}
+
+/* ============================ ТЕЛЕМЕТРИЯ ============================ */
+.heatmap{display:grid;grid-template-columns:repeat(30,1fr);gap:4px;margin:10px 0 4px}
+.heatmap .cell{aspect-ratio:1;border-radius:3px;background:var(--edge-soft);border:1px solid var(--edge)}
+.heatmap .cell.l1{background:rgba(73,214,196,.25)}
+.heatmap .cell.l2{background:rgba(73,214,196,.5)}
+.heatmap .cell.l3{background:rgba(73,214,196,.8)}
+.heatmap .cell.today{outline:1px solid var(--amber)}
+.spark{display:flex;align-items:flex-end;gap:3px;height:44px;margin-top:6px}
+.spark .bar{flex:1;background:linear-gradient(180deg,var(--amber),#b9822a);border-radius:2px 2px 0 0;min-height:2px}
+.metric-inputs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px}
+@media(max-width:560px){.metric-inputs{grid-template-columns:1fr}}
+
+/* ============================ ТОСТЫ / ПРОЧЕЕ ============================ */
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);
+  background:var(--code-bg);border:1px solid var(--edge);color:var(--code-ink);padding:11px 18px;border-radius:10px;
+  font-size:13.5px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:.25s;z-index:50;max-width:90vw}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.err{border-color:#5a2b28}
+.spinner{width:15px;height:15px;border:2px solid var(--ink-faint);border-top-color:var(--amber);
+  border-radius:50%;display:inline-block;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{color:var(--ink-faint);font-size:13px;padding:8px 0;text-align:center;font-style:italic}
+.divider{height:1px;background:var(--edge-soft);margin:16px 0}
+details.raw{margin-top:10px}
+details.raw summary{cursor:pointer;color:var(--ink-faint);font-size:12px}
+details.raw pre{background:var(--code-bg);border:1px solid var(--edge);border-radius:8px;padding:10px;
+  font-family:var(--mono);font-size:11px;color:var(--red);white-space:pre-wrap;max-height:200px;overflow:auto}
+
+/* панель подключения папки */
+.fs-panel{background:var(--panel-2);border:1px solid var(--edge);border-radius:11px;
+  padding:13px 15px;margin-bottom:18px;font-size:13.5px}
+.fs-panel b{font-weight:600}
+.fs-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;vertical-align:middle}
+.fs-dot.on{background:var(--green);box-shadow:0 0 9px 1px rgba(90,209,127,.5)}
+.fs-dot.off{background:var(--ink-faint)}
+.fs-dot.warn{background:var(--amber);box-shadow:0 0 9px 1px var(--amber-glow)}
+
+/* онбординг-баннер */
+.onboarding{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:space-between;
+  background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--amber);
+  border-radius:var(--radius);padding:14px 18px;margin-bottom:18px;box-shadow:var(--shadow)}
+
+/* геймификация в шапке: звание + уровень + XP-бар */
+.gauge.level{display:flex;align-items:center;gap:11px;min-width:210px;text-align:left}
+.lvl-emblem{flex:0 0 auto;width:44px;height:44px;display:block}
+.lvl-emblem .emblem-svg{width:44px;height:44px}
+.lvl-info{flex:1;min-width:0}
+.lvl-title{font-family:var(--font-head);font-size:14px;font-weight:650;line-height:1.1}
+.lvl-sub{font-size:11px;color:var(--ink-dim);margin:2px 0 5px}
+.xpbar{height:6px;border-radius:4px;background:var(--edge);overflow:hidden}
+.xpbar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--amber),var(--amber-strong));transition:width .3s}
+.lvl-next{margin-top:3px}
+
+/* эмблемы наград/званий */
+.emblem-svg{width:38px;height:38px;display:block}
+
+/* --- компактные ачивки в шапке --- */
+.ach-chip-wrap{position:relative;display:flex;align-items:center}
+.ach-chip{display:inline-flex;align-items:center;gap:8px;cursor:pointer;
+  background:var(--panel-2);border:1px solid var(--edge);border-radius:11px;padding:6px 11px;
+  transition:.16s border-color,.16s background}
+.ach-chip:hover{border-color:var(--amber);background:var(--amber-glow)}
+.ach-chip-icons{display:inline-flex;align-items:center;gap:3px}
+.ach-mini{display:inline-flex;width:22px;height:22px}
+.ach-mini .emblem-svg{width:22px;height:22px}
+.ach-more{font-size:11px;color:var(--ink-faint);font-family:var(--mono);margin-left:2px}
+.ach-chip-count{font-size:12.5px;color:var(--ink-dim);white-space:nowrap;font-weight:600}
+/* поповер со всеми ачивками */
+.ach-popover{position:absolute;top:calc(100% + 8px);right:0;width:300px;max-width:86vw;z-index:40;
+  background:var(--panel);border:1px solid var(--edge);border-radius:12px;box-shadow:var(--shadow);
+  padding:14px;display:none}
+.ach-popover.open{display:block}
+.ach-pop-h{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:9px}
+.ach-list{display:flex;flex-direction:column;gap:9px}
+.ach-item{display:flex;align-items:center;gap:10px}
+.ach-item-ico{flex:0 0 auto;width:32px;height:32px}
+.ach-item-ico .emblem-svg{width:32px;height:32px}
+.ach-item-txt{display:flex;flex-direction:column;line-height:1.3}
+.ach-item.locked .emblem-svg{filter:grayscale(1);opacity:.32}
+.ach-item.locked .ach-item-txt b{color:var(--ink-faint)}
+.ach-title-row{display:flex;flex-wrap:wrap;gap:8px}
+.ach-title-emb{display:inline-flex;width:30px;height:30px}
+.ach-title-emb .emblem-svg{width:30px;height:30px}
+.ach-title-emb.locked .emblem-svg{filter:grayscale(1);opacity:.32}
+@media(max-width:560px){ .ach-chip-icons{display:none} } /* тесно — оставляем только счётчик */
+
+/* кнопка ChatGPT = действие + таймер (toggle) */
+.chatgpt-btn{min-width:186px;justify-content:center} /* фикс ширины: ⏹ 03:42 не дёргает layout */
+.chatgpt-btn .cg-running{display:none;align-items:center;gap:7px}
+.chatgpt-btn .cg-idle{display:inline-flex;align-items:center}
+.chatgpt-btn.running .cg-idle{display:none}
+.chatgpt-btn.running .cg-running{display:inline-flex}
+.chatgpt-btn.running{background:var(--amber-strong);border-color:var(--amber-strong)}
+.chatgpt-btn.running #cgTime{font-size:14px;font-weight:700;min-width:44px;text-align:left}
+.pulse-dot{width:9px;height:9px;border-radius:50%;background:var(--btn-ink);
+  box-shadow:0 0 0 0 var(--btn-ink);animation:cgPulse 1.4s ease-in-out infinite}
+@keyframes cgPulse{0%{opacity:.5;transform:scale(.85)}50%{opacity:1;transform:scale(1.05)}100%{opacity:.5;transform:scale(.85)}}
+
+/* headline-метрика (суммарное время речи) */
+.headline{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;
+  background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--edge);
+  border-left:3px solid var(--amber);border-radius:11px;padding:14px 16px;margin-bottom:18px}
+.headline-main{display:flex;align-items:baseline;gap:10px}
+.headline-num{font-size:30px;font-weight:700;color:var(--amber)}
+.headline-l{font-size:12.5px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.08em}
+.headline-sub{font-size:13px;color:var(--ink-dim)}
+
+/* сворачиваемые Настройки */
+.settings-head{cursor:pointer;user-select:none;display:flex;align-items:baseline;gap:10px}
+.settings-caret{margin-left:auto;color:var(--ink-faint);font-size:14px}
+
+@media(max-width:820px){
+  .grid{grid-template-columns:1fr}
+  header.hud{padding:16px}
+  .gauge{min-width:78px;padding:8px 10px}
+  .gauge .val{font-size:20px}
+  .gauge.level{min-width:100%;order:5}
+}
+</style>
+
+<div class="wrap">
+
+  <!-- Онбординг: показывается пока не задан API-ключ -->
+  <div id="onboarding" class="onboarding" style="display:none">
+    <div>
+      <b>Добро пожаловать в MY ENGLISH COCKPIT 🎧</b>
+      <div class="tiny" style="margin-top:4px;color:var(--ink-dim)">Вставьте свой API-ключ (OpenRouter или другой OpenAI-совместимый) в Настройках и выберите модель — и можно тренироваться. Данные хранятся только в вашем браузере.</div>
+    </div>
+    <button class="btn primary sm" id="btnOnboardingSettings">Открыть настройки →</button>
+  </div>
+
+  <!-- ======================= ШАПКА + СТРИК ======================= -->
+  <header class="hud">
+    <div class="brand">
+      <div class="logo"><span class="dot"></span>MY ENGLISH COCKPIT</div>
+      <div class="sub">flow trainer · daily ops</div>
+    </div>
+    <div class="gauges">
+      <div class="gauge streak"><div class="val" id="gStreak">0</div><div class="lbl">🔥 стрик</div></div>
+      <div class="gauge sessions"><div class="val" id="gSessions">0</div><div class="lbl">сессий</div></div>
+      <div class="gauge"><div class="val mono" id="gDate" style="font-size:15px;padding-top:5px">—</div><div class="lbl">сегодня</div></div>
+      <div class="gauge level">
+        <span class="lvl-emblem" id="gTitleEmblem"></span>
+        <div class="lvl-info">
+          <div class="lvl-title" id="gTitle">Rookie Speaker</div>
+          <div class="lvl-sub"><span id="gLevel">Ур. 1</span> · <span id="gXp" class="mono">0 XP</span></div>
+          <div class="xpbar"><div class="xpbar-fill" id="gXpFill"></div></div>
+          <div class="lvl-next tiny faint" id="gXpNext"></div>
+        </div>
+      </div>
+      <!-- Компактные ачивки: иконки полученных + счётчик, клик → поповер со всеми -->
+      <div class="ach-chip-wrap">
+        <button class="ach-chip" id="achChip" aria-haspopup="true" aria-expanded="false" title="Достижения">
+          <span class="ach-chip-icons" id="achChipIcons"></span>
+          <span class="ach-chip-count mono" id="achChipCount">🏅 0/7</span>
+        </button>
+        <div class="ach-popover" id="achPopover" role="dialog" aria-label="Достижения"></div>
+      </div>
+    </div>
+    <button class="theme-toggle" id="themeToggle" title="Переключить тему" aria-label="Переключить тему">🌙</button>
+  </header>
+
+  <div class="grid">
+
+    <!-- ======================= 2. РОЛЁВКА ДНЯ ======================= -->
+    <section class="card col-span">
+      <div class="head"><span class="idx">01</span><h2>Ролёвка дня</h2><span class="en">daily roleplay</span></div>
+      <div class="scenario">
+        <div class="meta">Сценарий на <span id="scDay">сегодня</span></div>
+        <div class="title" id="scTitle">—</div>
+        <div class="desc" id="scDesc">—</div>
+      </div>
+      <div class="dim tiny" style="margin-bottom:6px">Промпт «строгого собеседника» — скопируй и вставь в чат-бота:</div>
+      <pre class="prompt" id="scPrompt">—</pre>
+      <div class="btnrow">
+        <button class="btn primary" id="btnCopyPrompt">📋 Скопировать промпт</button>
+        <!-- Одна кнопка = действие + таймер (toggle). Idle: открыть ChatGPT + старт. Running: ⏹ время → стоп/засчёт -->
+        <button class="btn primary chatgpt-btn" id="btnOpenChatGPT" aria-label="Открыть ChatGPT и запустить таймер">
+          <span class="cg-idle">🎙 Открыть ChatGPT</span>
+          <span class="cg-running"><span class="pulse-dot"></span>⏹ <span id="cgTime" class="mono">00:00</span></span>
+        </button>
+        <button class="btn ghost" id="btnRerollScenario">🎲 Другой сценарий</button>
+      </div>
+      <div class="tiny faint" style="margin-top:6px" id="cgHint">Голосовой режим Gemini доступен только в мобильном приложении — на десктопе используй ChatGPT.</div>
+    </section>
+
+    <!-- ======================= 3. РАЗБОР СЕССИИ ======================= -->
+    <section class="card">
+      <div class="head"><span class="idx">02</span><h2>Разбор сессии</h2><span class="en">grammar auditor</span></div>
+      <label class="field" for="txTranscript">Вставь транскрипт разговора (весь диалог, роли можно не размечать):</label>
+      <textarea id="txTranscript" placeholder="Paste your conversation transcript here…"></textarea>
+      <div class="btnrow">
+        <button class="btn primary" id="btnAudit">🔍 Разобрать ошибки</button>
+        <button class="btn cyan" id="btnEvaluate">📊 Оценить разговор</button>
+      </div>
+      <div id="evalResult" style="margin-top:14px"></div>
+      <div id="auditResult" style="margin-top:14px"></div>
+    </section>
+
+    <!-- ======================= 5. WRITING COACH ======================= -->
+    <section class="card">
+      <div class="head"><span class="idx">03</span><h2>Тренажёр письма</h2><span class="en">writing coach</span></div>
+      <label class="field" for="txWriting">Напиши абзац по-английски — коуч поднимет его до executive-уровня:</label>
+      <textarea id="txWriting" placeholder="Write your English here — an email, a message, a paragraph…"></textarea>
+      <div class="btnrow">
+        <button class="btn primary" id="btnWriteCheck">✍️ Проверить</button>
+      </div>
+      <div class="coach-out" id="coachOut"></div>
+    </section>
+
+    <!-- ======================= 4. БАНК ОШИБОК + SRS ======================= -->
+    <section class="card col-span">
+      <div class="head"><span class="idx">04</span><h2>Банк ошибок · интервальный повтор</h2><span class="en">error bank · SRS</span></div>
+      <div class="stat-row">
+        <div class="stat"><div class="n" id="sTotal">0</div><div class="l">всего карт</div></div>
+        <div class="stat due"><div class="n" id="sDue">0</div><div class="l">к повтору</div></div>
+        <div class="stat mastered"><div class="n" id="sMastered">0</div><div class="l">освоено</div></div>
+      </div>
+      <div class="btnrow">
+        <button class="btn primary" id="btnStartReview">▶ Повторить <span id="dueCount">0</span></button>
+        <button class="btn ghost" id="btnBrowseCards">📚 Показать все карты</button>
+      </div>
+
+      <!-- сцена ревью -->
+      <div id="reviewStage">
+        <div class="review-progress" id="revProgress"></div>
+        <div style="text-align:center;margin-bottom:6px" id="revBadge"></div>
+        <div class="review-cloze" id="revCloze"></div>
+        <div class="review-answer" id="revAnswer" style="display:none">
+          <div class="a" id="revAns"></div>
+          <div class="e" id="revExp"></div>
+        </div>
+        <div id="revShowWrap" class="btnrow" style="justify-content:center">
+          <button class="btn primary" id="btnShowAnswer">Показать ответ</button>
+        </div>
+        <div class="grade-row" id="revGrades" style="display:none">
+          <button class="btn danger" data-grade="again">Снова<small>&lt;1д</small></button>
+          <button class="btn" data-grade="hard">Трудно<small>~1.2×</small></button>
+          <button class="btn cyan" data-grade="good">Хорошо<small>ease×</small></button>
+          <button class="btn primary" data-grade="easy">Легко<small>ease+</small></button>
+        </div>
+      </div>
+
+      <!-- список карт -->
+      <div id="cardsBrowser" style="margin-top:14px;display:none"></div>
+    </section>
+
+    <!-- ======================= 6. ТЕЛЕМЕТРИЯ ======================= -->
+    <section class="card col-span">
+      <div class="head"><span class="idx">05</span><h2>Дашборд прогресса</h2><span class="en">telemetry</span></div>
+
+      <!-- Headline: суммарное время речи (ключевая метрика метода) -->
+      <div class="headline">
+        <div class="headline-main"><span class="headline-num mono" id="hlSpeakTotal">0 мин</span><span class="headline-l">суммарное время речи вслух</span></div>
+        <div class="headline-sub">за 30 дней: <b class="mono" id="hlSpeak30">0 мин</b></div>
+      </div>
+
+      <div class="grid" style="gap:20px">
+        <div>
+          <div class="dim tiny up" style="margin-bottom:2px">Активность · 30 дней</div>
+          <div class="heatmap" id="heatmap"></div>
+          <div class="tiny faint" style="margin-top:4px">Каждый квадрат — день. Ярче = больше карточек разобрано.</div>
+          <div class="divider"></div>
+          <div class="stat-row">
+            <div class="stat"><div class="n" id="tWeek">0</div><div class="l">сессий/нед</div></div>
+            <div class="stat mastered"><div class="n" id="tMastered">0</div><div class="l">освоено</div></div>
+            <div class="stat due"><div class="n" id="tDuePct">0%</div><div class="l">доля к повтору</div></div>
+          </div>
+        </div>
+        <div>
+          <div class="dim tiny up" style="margin-bottom:2px">Ручные метрики речи (раз в месяц)</div>
+          <div class="tiny faint">Articulation rate — слогов/сек. MLT — mean length of T-unit (слов в высказывании).</div>
+          <div class="metric-inputs">
+            <div><label class="field">Месяц</label><input type="text" id="mMonth" placeholder="2026-07"></div>
+            <div><label class="field">Artic. rate</label><input type="number" id="mArtic" step="0.1" placeholder="3.5"></div>
+            <div><label class="field">MLT</label><input type="number" id="mMlt" step="0.1" placeholder="8.0"></div>
+          </div>
+          <div class="btnrow"><button class="btn sm" id="btnSaveMetric">Сохранить замер</button></div>
+          <div class="divider"></div>
+          <div class="tiny dim">Articulation rate</div>
+          <div class="spark" id="sparkArtic"></div>
+          <div class="tiny dim" style="margin-top:10px">Mean length of T-unit</div>
+          <div class="spark" id="sparkMlt"></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="dim tiny up" style="margin-bottom:6px">Оценка разговоров (SGR) · composite 0–100</div>
+      <div id="evalTelemetry"></div>
+    </section>
+
+    <!-- ======================= 7. НАСТРОЙКИ ======================= -->
+    <section class="card col-span">
+      <div class="head settings-head" id="settingsHead" role="button" tabindex="0">
+        <span class="idx">06</span><h2>Настройки</h2><span class="en">settings</span>
+        <span class="settings-caret" id="settingsCaret">▸</span>
+      </div>
+
+      <div id="settingsBody" style="display:none">
+      <!-- Durable-персист: подключение папки проекта (File System Access API) -->
+      <div class="fs-panel" id="fsStatus"></div>
+
+      <div class="grid" style="gap:20px">
+        <div>
+          <div class="field-wrap">
+            <label class="field" for="inKey">API-ключ провайдера</label>
+            <input type="password" id="inKey" placeholder="sk-or-v1-… или ключ вашего провайдера" autocomplete="off">
+            <div class="tiny faint" style="margin-top:5px">🔒 Ключ хранится только локально в этом браузере (localStorage). Отправляется только на указанный ниже эндпоинт при вызове модели.</div>
+          </div>
+          <div class="field-wrap">
+            <label class="field" for="inBaseUrl">Base URL / эндпоинт</label>
+            <input type="text" id="inBaseUrl" placeholder="https://openrouter.ai/api/v1/chat/completions" autocomplete="off">
+            <div class="tiny faint" style="margin-top:5px">Любой OpenAI-совместимый эндпоинт (OpenRouter, свой шлюз и т.п.). Ключ и модель — под этот провайдер.</div>
+          </div>
+          <div class="field-wrap">
+            <label class="field" for="selModel">Модель</label>
+            <select id="selModel">
+              <option value="google/gemini-2.5-flash">google/gemini-2.5-flash (рекоменд., дёшево)</option>
+              <option value="google/gemini-2.5-flash-lite">google/gemini-2.5-flash-lite (самый дешёвый)</option>
+              <option value="anthropic/claude-haiku-4.5">anthropic/claude-haiku-4.5</option>
+              <option value="openai/gpt-4o-mini">openai/gpt-4o-mini</option>
+              <option value="google/gemini-2.5-pro">google/gemini-2.5-pro (дороже, качественнее)</option>
+              <option value="anthropic/claude-sonnet-4.5">anthropic/claude-sonnet-4.5</option>
+              <option value="meta-llama/llama-3.3-70b-instruct">meta-llama/llama-3.3-70b-instruct</option>
+              <option value="__custom">✏️ Своя модель…</option>
+            </select>
+            <input type="text" id="inCustomModel" placeholder="provider/model-id" style="margin-top:8px;display:none">
+          </div>
+          <div class="field-wrap">
+            <label class="field" for="inCardLimit">Лимит новых карточек за сессию</label>
+            <input type="number" id="inCardLimit" min="1" step="1" placeholder="15">
+            <div class="tiny faint" style="margin-top:5px">Мягкий порог: при превышении покажется предупреждение о риске «лавины» повторов (не блокирует).</div>
+          </div>
+          <div class="field-wrap">
+            <label class="field" for="inLeechThreshold">Порог leech (провалов до отложки)</label>
+            <input type="number" id="inLeechThreshold" min="1" step="1" placeholder="4">
+            <div class="tiny faint" style="margin-top:5px">Защита от «лавины»: если карту проваливаешь ≥ N раз, она откладывается из ротации — сигнал, что карточка плохо сформулирована. Вернуть можно в банке.</div>
+          </div>
+        </div>
+        <div>
+          <label class="field">Данные</label>
+          <div class="tiny faint" style="margin-bottom:10px">localStorage можно потерять при чистке браузера — делай бэкапы.</div>
+          <div class="btnrow" style="margin-top:0">
+            <button class="btn cyan" id="btnExport">⬇ Экспорт (JSON)</button>
+            <button class="btn" id="btnImport">⬆ Импорт</button>
+            <input type="file" id="fileImport" accept="application/json" style="display:none">
+          </div>
+          <div class="divider"></div>
+          <button class="btn danger" id="btnReset">🗑 Сбросить все данные</button>
+        </div>
+      </div>
+      </div><!-- /settingsBody -->
+    </section>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ========================================================================
+   MY ENGLISH COCKPIT — вся логика приложения
+   ======================================================================== */
+"use strict";
+
+const LS_KEY = "english_cockpit_v1";
+const THEME_KEY = "english_cockpit_theme"; // выбор темы хранится отдельно (лёгкий, независимый от данных)
+
+/* ---------- Тема (тёплая Anthropic по умолчанию / тёмный кокпит) ---------- */
+function currentTheme(){ return localStorage.getItem(THEME_KEY)==="dark" ? "dark" : "warm"; }
+function applyTheme(t){
+  const theme = t==="dark" ? "dark" : "warm";
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem(THEME_KEY, theme);
+  const btn = document.getElementById("themeToggle");
+  if(btn){ btn.textContent = theme==="dark" ? "☀️" : "🌙";
+    btn.title = theme==="dark" ? "Светлая (тёплая) тема" : "Тёмная тема"; }
+}
+function toggleTheme(){ applyTheme(currentTheme()==="dark" ? "warm" : "dark"); }
+// применяем сразу, до отрисовки, чтобы не мигало
+applyTheme(currentTheme());
+
+/* ---------- 40 профессиональных ролёвок ---------- */
+const SCENARIOS = [
+  ["Defend a budget cut to the CFO","Justify why your team's budget should not be reduced this quarter."],
+  ["Negotiate a merger term sheet","Hammer out valuation and control terms with the other party's lead."],
+  ["Explain a project delay to an angry client","Own the slip, reset expectations, and protect the relationship."],
+  ["Disagree with your boss in a 1:1","Push back respectfully on a decision you believe is wrong."],
+  ["Pitch a new product to investors","Sell the vision, market and traction in a tight opening."],
+  ["Run a performance review of an underperformer","Deliver honest feedback and a concrete improvement plan."],
+  ["Handle a job interview for a VP role","Field tough questions about leadership and past failures."],
+  ["Push back on an unrealistic deadline","Renegotiate scope or timeline without sounding defensive."],
+  ["Give critical feedback to a peer","Raise a sensitive issue with a colleague of equal rank."],
+  ["Present quarterly results to the board","Walk directors through numbers, risks and the outlook."],
+  ["Fire an employee with dignity","Communicate a termination clearly, humanely and legally."],
+  ["Resolve a conflict between two reports","Mediate a dispute between two team members who won't align."],
+  ["Ask for a promotion and a raise","Make the case for your advancement with evidence."],
+  ["Sell a price increase to a key account","Explain a 15% raise without losing the customer."],
+  ["Decline a client request you can't meet","Say no to an out-of-scope demand while keeping goodwill."],
+  ["Onboard a skeptical new hire","Win over a senior joiner who doubts your processes."],
+  ["Debrief a failed product launch","Lead a blameless post-mortem and extract the lessons."],
+  ["Convince the board to enter a new market","Argue for an expansion others see as too risky."],
+  ["Handle a hostile press question","Stay composed under an accusatory journalist's questioning."],
+  ["Negotiate a vendor contract renewal","Squeeze better terms while keeping a reliable supplier."],
+  ["Motivate a team after layoffs","Rebuild morale and trust with the survivors."],
+  ["Escalate a risk to the steering committee","Flag a serious problem senior leaders are underrating."],
+  ["Coach a high performer who's plateaued","Reignite ambition in a strong player who's coasting."],
+  ["Defend an architecture decision to engineers","Explain a controversial technical trade-off to skeptics."],
+  ["Close a hesitant enterprise buyer","Overcome final objections and get the signature."],
+  ["Apologize for a service outage","Address customers after a major failure and rebuild trust."],
+  ["Realign a project that's off the rails","Reset a program that has drifted from its goals."],
+  ["Say no to your CEO's pet idea","Kill a bad initiative championed by the top."],
+  ["Handle a compensation dispute","Address an employee who feels underpaid relative to peers."],
+  ["Pitch yourself as a keynote speaker","Convince a conference organizer to give you the stage."],
+  ["Broker a partnership between rivals","Get two competing teams to co-own an outcome."],
+  ["Report a compliance breach upward","Disclose a regulatory issue to the audit committee."],
+  ["Turn around a dissatisfied investor","Restore confidence with a backer threatening to exit."],
+  ["Lead a town hall after a strategy pivot","Explain a major change of direction to the whole company."],
+  ["Negotiate equity in a startup offer","Argue for more stock in your compensation package."],
+  ["Challenge a flawed market assumption","Question the data underpinning a big strategic bet."],
+  ["Handle a client who wants a refund","Address a refund demand while protecting revenue."],
+  ["Delegate a high-stakes task convincingly","Hand off a critical deliverable and secure buy-in."],
+  ["Defend a controversial hiring decision","Justify hiring an unconventional candidate to doubters."],
+  ["Give a go/no-go decision under pressure","Make and communicate a launch call with incomplete data."]
+];
+
+const STRICT_PROMPT_TEMPLATE =
+`<role> You are a senior corporate executive and an Applied Linguistics expert. Your objective is to help me proceduralize advanced English syntax through spoken, problem-based dialogue. Today's scenario: {{SCENARIO}}. </role>
+<constraints>
+1. Maintain a natural, highly professional tone.
+2. DO NOT finish my sentences or assume my meaning. Force me to articulate the complete thought.
+3. Keep your responses brief to maximize my speaking time.
+</constraints>
+<feedback_loop> If I make a grammatical, lexical, or severe phonetic error, halt the conversation immediately. 1. State the error. 2. Provide the corrected sentence. 3. Ask me to repeat the corrected sentence aloud before proceeding. </feedback_loop>`;
+
+const AUDITOR_SYSTEM =
+`You are an expert applied linguist and an executive communication coach. Analyze the conversation transcript the user provides. Focus ONLY on the USER's turns (ignore the AI/interlocutor turns). Register throughout: professional / executive, natural and idiomatic — never slangy, never clichéd, never textbook-stiff.
+Return ONLY a single JSON object, no prose, no code fences. Shape EXACTLY:
+{
+  "errors": [{"cloze": "full natural professional sentence with the target masked as ___", "answer": "masked word or phrase", "explanation": "one short sentence in Russian why the original was wrong"}],
+  "say_aloud": ["2-3 полные образцовые фразы под тему разговора — естественные, для проговаривания вслух"],
+  "pattern_focus": "одна строка по-русски: на какой ОДИН тип ошибки жать ближайшие сессии",
+  "idioms": [{"phrase": "idiom or multi-word chunk that genuinely fits THIS business situation", "meaning_ru": "короткое значение по-русски", "example": "natural example sentence in the situation's register"}],
+  "connectors": [{"phrase": "discourse marker / sentence stem for smooth transitions, e.g. 'The way I see it,', 'That said,', 'Perhaps we could', 'What stood out to me was'", "use_ru": "когда это использовать, по-русски", "example": "natural example sentence"}],
+  "vocab": [{"cloze": "sentence with a high-value word/collocation masked as ___", "answer": "the masked word or phrase", "explanation": "one short sentence in Russian — why this word was the gap"}]
+}
+Rules:
+- errors: EVERY grammar / collocation / preposition / article / word-choice mistake the user actually made.
+- idioms: 3-5, executive/professional, must fit the concrete situation — no filler, no overused business-speak.
+- connectors: 5-8 useful discourse markers / sentence stems for fluent transitions.
+- vocab: up to 6 — PRIORITIZE the words the user reached for and missed (gaps in THIS dialogue), presented inside a sentence (cloze), never as an isolated list. If you cannot infer real gaps, return fewer.
+- If a section has nothing, return an empty array (or empty string for pattern_focus). Never omit a key.`;
+
+const COACH_SYSTEM =
+`You are a ruthless but constructive executive writing coach. Elevate the user's written English from competent to native-level executive proficiency.
+Rules: prioritize clarity, active voice, conciseness; remove corporate boilerplate; resolve nominalizations ("make a decision" -> "decide"); do NOT rewrite from scratch, preserve the user's voice.
+Return ONLY valid JSON, no code fences: {"edited": "the polished text", "feedback": ["short bullet in Russian explaining each structural change: collocations, prepositions, clause density"]}`;
+
+/* SGR-оценщик: Schema-Guided Reasoning — reasoning ПЕРЕД баллом, ровно 6 критериев (Cycle),
+   evidence-цитата как anti-hallucination, жёсткие анкеры шкалы для сопоставимости во времени. */
+const EVALUATOR_SYSTEM =
+`You are a strict CEFR oral-proficiency examiner assessing spoken business English from a conversation transcript. Apply Schema-Guided Reasoning: for every criterion write the reasoning FIRST, then cite real evidence, then assign the score. Never let the number precede the justification.
+Return ONLY a single JSON object, no prose, no code fences. Shape EXACTLY:
+{
+  "summary": "1-2 neutral sentences about the performance (warm-up before scoring), in Russian",
+  "criteria": [
+    {"key":"fluency",    "reasoning":"...", "evidence":"quote from the USER's speech", "score":0},
+    {"key":"grammar",    "reasoning":"...", "evidence":"...", "score":0},
+    {"key":"lexis",      "reasoning":"...", "evidence":"...", "score":0},
+    {"key":"complexity", "reasoning":"...", "evidence":"...", "score":0},
+    {"key":"discourse",  "reasoning":"...", "evidence":"...", "score":0},
+    {"key":"task",       "reasoning":"...", "evidence":"...", "score":0}
+  ],
+  "composite": 0,
+  "cefr": "A2|B1|B2|C1",
+  "top_strength": "in Russian, short",
+  "top_priority": "in Russian, one concrete action for the next session",
+  "verdict": "one line in Russian"
+}
+STRICT RULES (anchors — keep scores comparable across sessions):
+- Assess ONLY the USER's turns; ignore the AI/interlocutor turns entirely.
+- Scale anchors (shared by ALL six criteria): 0-2 = A1-A2 level (short choppy phrases, frequent errors/pauses); 3-4 = A2-B1; 5-6 = B1 (copes but noticeable errors, few connectors); 7-8 = B2 (fluent connected speech, rare errors, some collocations/connectors); 9-10 = C1 (free, precise, idiomatic).
+- reasoning must be written BEFORE the score for each criterion. reasoning and verdict/strength/priority are in Russian; keys and cefr stay as given.
+- composite = weighted sum: fluency*2.5 + grammar*1.5 + lexis*1.5 + complexity*1.5 + discourse*1.5 + task*1.5 (range 0-100). Round to an integer.
+- evidence must be a REAL quote from the transcript — never fabricate. If there is too little user speech to judge a criterion, say so in reasoning, set reasoning to "N/A" style wording, lower your confidence, and do NOT invent a score beyond what the evidence supports.
+- Always return EXACTLY 6 criteria in the given order. Never omit a key.`;
+
+/* ---------- Состояние ---------- */
+const defaultState = () => ({
+  settings:{ apiKey:"", model:"google/gemini-2.5-flash", newCardLimit:15, leechThreshold:4 },
+  sessions:[],        // {date, scenario, transcript, errorsCount, cards:[{cloze,answer,explanation,category}], say_aloud:[], pattern_focus:""}
+  cards:[],           // {id, cloze, answer, explanation, category, ease, interval, dueDate, reps, lapses, suspended, created}
+  writingHistory:[],  // {date, original, edited, feedback:[]}
+  metrics:[],         // {month, artic, mlt}
+  evaluations:[],     // {date, scenario, composite, cefr, scores:{...}, top_strength, top_priority, verdict}
+  // ---- геймификация (только добавления) ----
+  xp:0, level:1, badges:[], bestComposite:0, totalReviews:0, lastLeechDate:"",
+  totalSpeakingMinutes:0,
+  daily:{ date:"", xpToday:0, cardsReviewedToday:0, speakingMinutesToday:0, auditedHashes:[], evalDone:false, streakAwarded:false },
+  weekly:{ weekKey:"", sessionsThisWeek:0, bonusGiven:false },
+  updatedAt:null, lastBackupDate:""
+});
+let state = load();
+
+function load(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return defaultState();
+    const s = JSON.parse(raw);
+    // мягкая миграция — гарантируем наличие всех полей
+    return Object.assign(defaultState(), s, {settings:Object.assign(defaultState().settings, s.settings||{})});
+  }catch(e){ console.warn("load failed",e); return defaultState(); }
+}
+function save(){
+  state.updatedAt = new Date().toISOString();          // тайбрейк при слиянии с диском
+  localStorage.setItem(LS_KEY, JSON.stringify(state)); // localStorage — живое хранилище
+  schedulePersist();                                   // durable-слой: дебаунс-запись в data/state.json
+}
+/* Объём данных состояния — для сравнения «где больше» при слиянии */
+function dataVolume(s){ return (s?.sessions?.length||0)+(s?.cards?.length||0)+(s?.evaluations?.length||0); }
+
+/* ========================================================================
+   DURABLE-СЛОЙ: авто-персист в папку проекта через File System Access API.
+   Handle папки хранится в IndexedDB, чтобы переживать перезагрузку страницы.
+   Работает по http(s)/localhost; на file:// API недоступен — graceful degrade.
+   ======================================================================== */
+const FS_SUPPORTED = ("showDirectoryPicker" in window);
+let dirHandle = null;          // FileSystemDirectoryHandle выбранной папки проекта
+let lastSavedAt = null;        // время последней успешной записи на диск
+let persistTimer = null;
+let fsHydrated = false;        // пока не прочитали диск на старте — НЕ пишем (защита от затирания пустышкой)
+
+/* --- мини-обёртка над IndexedDB для хранения одного handle --- */
+const IDB_NAME = "english_cockpit_fs", IDB_STORE = "handles", IDB_KEY = "projectDir";
+function idbOpen(){
+  return new Promise((resolve,reject)=>{
+    const req = indexedDB.open(IDB_NAME,1);
+    req.onupgradeneeded = ()=> req.result.createObjectStore(IDB_STORE);
+    req.onsuccess = ()=> resolve(req.result);
+    req.onerror = ()=> reject(req.error);
+  });
+}
+async function idbSet(key,val){
+  const db = await idbOpen();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(IDB_STORE,"readwrite");
+    tx.objectStore(IDB_STORE).put(val,key);
+    tx.oncomplete = ()=> resolve(); tx.onerror = ()=> reject(tx.error);
+  });
+}
+async function idbGet(key){
+  const db = await idbOpen();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(IDB_STORE,"readonly");
+    const r = tx.objectStore(IDB_STORE).get(key);
+    r.onsuccess = ()=> resolve(r.result); r.onerror = ()=> reject(r.error);
+  });
+}
+async function idbDel(key){
+  const db = await idbOpen();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(IDB_STORE,"readwrite");
+    tx.objectStore(IDB_STORE).delete(key);
+    tx.oncomplete = ()=> resolve(); tx.onerror = ()=> reject(tx.error);
+  });
+}
+
+/* Записать снапшот состояния в <папка>/data/state.json */
+/* БЕЗОПАСНОСТЬ: apiKey живёт ТОЛЬКО в localStorage, НИКОГДА в файлах.
+   Возвращает глубокую копию состояния с обнулённым apiKey — для диска и экспорта. */
+function stateForFile(){
+  const copy = JSON.parse(JSON.stringify(state));           // глубокая копия
+  if(copy.settings) copy.settings.apiKey = "";              // ключ не пишем в файл (baseUrl остаётся — не секрет)
+  return copy;
+}
+async function writeStateToDisk(){
+  if(!dirHandle) return false;
+  const dataDir = await dirHandle.getDirectoryHandle("data",{create:true}); // создаём data/ если нет
+  const fileHandle = await dataDir.getFileHandle("state.json",{create:true});
+  const w = await fileHandle.createWritable();
+  await w.write(JSON.stringify(stateForFile(),null,2));     // apiKey исключён
+  await w.close();
+  lastSavedAt = new Date();
+  await maybeDailyBackup(dataDir);                          // датированный снапшот раз в день
+  renderFsStatus();
+  return true;
+}
+
+/* ---------- Ротируемые ежедневные бэкапы: data/backups/state-YYYY-MM-DD.json ---------- */
+const BACKUP_KEEP = 14;                                     // хранить последние 14 снапшотов
+let lastBackupCount = null;                                 // для индикатора в настройках
+const BACKUP_RE = /^state-(\d{4}-\d{2}-\d{2})\.json$/;      // строго наш формат имени
+
+/* Автоснапшот не чаще раза в день (по state.lastBackupDate) */
+async function maybeDailyBackup(dataDir){
+  const today = todayISO();
+  if(state.lastBackupDate === today) return;               // уже бэкапили сегодня — не дублируем
+  try{ await writeBackupSnapshot(dataDir, today); state.lastBackupDate = today; localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+  catch(e){ console.warn("backup failed",e); }
+}
+/* Подсчитать существующие снапшоты (для индикатора при старте), без записи */
+async function refreshBackupCount(){
+  if(!dirHandle) return;
+  try{
+    const dataDir = await dirHandle.getDirectoryHandle("data",{create:false});
+    const backupsDir = await dataDir.getDirectoryHandle("backups",{create:false});
+    let n=0;
+    for await (const [name] of backupsDir.entries()){ if(BACKUP_RE.test(name)) n++; }
+    lastBackupCount = n; renderFsStatus();
+  }catch(e){ /* папки backups ещё нет — норм */ }
+}
+/* Форсированный снапшот текущей датой (перезаписывает сегодняшний) */
+async function backupNow(){
+  if(!dirHandle){ toast("Сначала подключи папку проекта", true); return; }
+  try{
+    const dataDir = await dirHandle.getDirectoryHandle("data",{create:true});
+    await writeBackupSnapshot(dataDir, todayISO());
+    state.lastBackupDate = todayISO(); localStorage.setItem(LS_KEY, JSON.stringify(state));
+    renderFsStatus(); toast("Бэкап сделан ✓");
+  }catch(e){ toast("Не удалось сделать бэкап: "+e.message, true); }
+}
+/* Записать снапшот (БЕЗ apiKey) + ротация до BACKUP_KEEP */
+async function writeBackupSnapshot(dataDir, dateStr){
+  const backupsDir = await dataDir.getDirectoryHandle("backups",{create:true}); // НОВАЯ подпапка
+  const fh = await backupsDir.getFileHandle(`state-${dateStr}.json`,{create:true});
+  const w = await fh.createWritable();
+  await w.write(JSON.stringify(stateForFile(),null,2));     // apiKey исключён (тот же security-safe путь)
+  await w.close();
+  await rotateBackups(backupsDir);
+}
+/* Ротация: удаляем только самые старые state-YYYY-MM-DD.json сверх лимита */
+async function rotateBackups(backupsDir){
+  const names = [];
+  for await (const [name] of backupsDir.entries()){          // перечислить содержимое папки
+    if(BACKUP_RE.test(name)) names.push(name);               // отбираем ТОЛЬКО наши снапшоты
+  }
+  names.sort();                                              // имена сортируются как даты (лексикографически = хронологически)
+  while(names.length > BACKUP_KEEP){
+    const old = names.shift();
+    if(BACKUP_RE.test(old)){ await backupsDir.removeEntry(old); } // двойная защита: удаляем строго state-*.json
+  }
+  lastBackupCount = names.length;                            // фактическое число снапшотов после ротации
+}
+
+/* Прочитать состояние с диска (data/state.json), либо null если файла/папки нет */
+async function readDiskState(){
+  if(!dirHandle) return null;
+  try{
+    const dataDir = await dirHandle.getDirectoryHandle("data",{create:false});
+    const fh = await dataDir.getFileHandle("state.json",{create:false});
+    const file = await fh.getFile();
+    const text = await file.text();
+    if(!text.trim()) return null;
+    return JSON.parse(text);
+  }catch(e){ return null; } // NotFoundError и т.п. — на диске просто ещё нет данных
+}
+/* Нормализованная загрузка состояния (диск/импорт).
+   ВАЖНО: apiKey всегда берётся из localStorage, не из файла — файл его не содержит.
+   Если во входных данных apiKey пустой, сохраняем текущий ключ из localStorage. */
+function mergeLoadedState(obj){
+  const merged = Object.assign(defaultState(), obj, {settings:Object.assign(defaultState().settings, obj.settings||{})});
+  const incomingKey = (obj && obj.settings && obj.settings.apiKey || "").trim();
+  const currentKey = (state.settings && state.settings.apiKey || "").trim();
+  merged.settings.apiKey = incomingKey || currentKey; // не затираем существующий ключ пустым из файла
+  return merged;
+}
+/* Слияние диск→localStorage при подключении/восстановлении папки.
+   Никогда не затираем непустой диск пустышкой без явного подтверждения. */
+async function hydrateFromDisk(interactive=false){
+  try{
+    const disk = await readDiskState();
+    if(!disk){ if(interactive) toast("На диске нет data/state.json — нечего загружать", true); return; }
+    const diskVol = dataVolume(disk), curVol = dataVolume(state);
+    const diskNewer = String(disk.updatedAt||"") > String(state.updatedAt||"");
+    const shouldOffer = diskVol>curVol || (interactive && diskVol>0 && (diskVol>curVol || diskNewer));
+    if(shouldOffer){
+      const ok = confirm(`На диске найдены данные (${disk.sessions?.length||0} сессий, ${disk.cards?.length||0} карточек, ${disk.evaluations?.length||0} оценок). Загрузить их? Текущее в этом браузере будет заменено.`);
+      if(ok){
+        state = mergeLoadedState(disk);
+        fsHydrated = true;                 // разрешаем дальнейший авто-персист
+        localStorage.setItem(LS_KEY, JSON.stringify(state));
+        renderSettings(); renderAll(); renderFsStatus();
+        toast("Данные загружены из папки ✓");
+        return;
+      }
+    } else if(interactive){
+      toast("В браузере данные не старше дисковых — оставил как есть");
+    }
+  }catch(e){ console.warn("hydrate failed",e); if(interactive) toast("Ошибка чтения из папки: "+e.message, true); }
+}
+
+/* Дебаунс ~1с, чтобы не молотить диск на каждый чих */
+function schedulePersist(){
+  if(!dirHandle || !fsHydrated) return; // не пишем, пока не прочитали диск (иначе можно затереть)
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(async ()=>{
+    try{ await writeStateToDisk(); }
+    catch(e){ console.warn("persist failed",e); toast("Не удалось записать в папку: "+e.message, true); }
+  }, 1000);
+}
+
+/* Проверка/запрос разрешения на handle */
+async function ensurePermission(handle, mode="readwrite"){
+  const opts = {mode};
+  if((await handle.queryPermission(opts))==="granted") return true;
+  if((await handle.requestPermission(opts))==="granted") return true;
+  return false;
+}
+
+/* Кнопка «Подключить папку проекта» */
+async function connectFolder(){
+  if(!FS_SUPPORTED){ toast("Браузер не поддерживает File System Access API. Открой через localhost (см. подсказку) или используй Экспорт JSON.", true); return; }
+  try{
+    const handle = await window.showDirectoryPicker();
+    if(!(await ensurePermission(handle,"readwrite"))){ toast("Доступ к папке не выдан", true); return; }
+    dirHandle = handle;
+    await idbSet(IDB_KEY, handle);          // сохраняем handle для будущих сессий
+    await hydrateFromDisk(false);           // предложить загрузить, если на диске данных больше
+    fsHydrated = true;                      // читать закончили — можно писать
+    await writeStateToDisk();               // сразу пишем актуальное состояние
+    renderFsStatus(); refreshBackupCount();
+    toast("Папка подключена ✓ данные будут сохраняться автоматически");
+  }catch(e){
+    if(e && e.name==="AbortError") return;  // пользователь закрыл диалог
+    toast("Ошибка подключения папки: "+e.message, true);
+  }
+}
+
+/* Отключить папку (забыть handle) */
+async function disconnectFolder(){
+  dirHandle=null; lastSavedAt=null;
+  try{ await idbDel(IDB_KEY); }catch(e){}
+  renderFsStatus();
+  toast("Папка отключена. Данные остаются в браузере.");
+}
+
+/* Восстановление доступа при старте */
+async function restoreFolder(){
+  if(!FS_SUPPORTED){ fsHydrated=true; renderFsStatus(); return; }
+  try{
+    const handle = await idbGet(IDB_KEY);
+    if(!handle){ fsHydrated=true; renderFsStatus(); return; } // папки нет — писать нечего, снимаем гейт
+    // permission восстанавливаем «мягко»: без клика браузер может вернуть 'prompt'
+    if((await handle.queryPermission({mode:"readwrite"}))==="granted"){
+      dirHandle = handle;
+      await hydrateFromDisk(false); // ВАЖНО: читаем диск ДО любой авто-записи (перенос между машинами)
+      fsHydrated = true;
+      refreshBackupCount();
+    }else{
+      // handle есть, но нужен жест пользователя — покажем кнопку «Восстановить доступ»
+      pendingHandle = handle;       // fsHydrated остаётся false: без доступа dirHandle null → писать всё равно не будем
+    }
+  }catch(e){ console.warn("restore failed",e); fsHydrated=true; }
+  renderFsStatus();
+}
+let pendingHandle = null; // handle, ждущий подтверждения доступа кликом
+
+/* Повторно запросить доступ к ранее выбранной папке (по клику) */
+async function reauthorizeFolder(){
+  if(!pendingHandle) return connectFolder();
+  if(await ensurePermission(pendingHandle,"readwrite")){
+    dirHandle = pendingHandle; pendingHandle=null;
+    await hydrateFromDisk(false);   // прочитать диск перед первой записью
+    fsHydrated = true;
+    await writeStateToDisk(); renderFsStatus(); refreshBackupCount();
+    toast("Доступ восстановлен ✓");
+  }else{
+    toast("Доступ не выдан", true);
+  }
+}
+
+/* Индикатор статуса подключения папки */
+function renderFsStatus(){
+  const box = el("fsStatus"); if(!box) return;
+  if(!FS_SUPPORTED){
+    box.innerHTML = `<span class="fs-dot off"></span><b>Авто-сохранение недоступно</b>
+      <div class="tiny faint" style="margin-top:4px">File System Access API не работает на <span class="mono">file://</span>.
+      Запусти через локальный сервер: <span class="mono">just english</span> (или <span class="mono">python3 -m http.server</span>),
+      затем открой кокпит по <span class="mono">http://localhost:…</span>. Пока данные живут только в этом браузере — делай Экспорт JSON.</div>`;
+    return;
+  }
+  if(dirHandle){
+    const t = lastSavedAt ? lastSavedAt.toLocaleTimeString("ru-RU") : "—";
+    const bDate = state.lastBackupDate || "—";
+    const bCount = lastBackupCount!=null ? lastBackupCount : "—";
+    box.innerHTML = `<span class="fs-dot on"></span><b>Папка подключена ✓</b>
+      <span class="tiny faint">· последнее сохранение: <span class="mono">${t}</span></span>
+      <div class="tiny faint" style="margin-top:4px">Последний бэкап: <span class="mono">${bDate}</span> · снапшотов: <span class="mono">${bCount}</span> <span class="faint">(хранится ${BACKUP_KEEP}, в <span class="mono">data/backups/</span>)</span></div>
+      <div class="btnrow" style="margin-top:8px">
+        <button class="btn sm" id="btnSaveNow">💾 Сохранить сейчас</button>
+        <button class="btn sm" id="btnBackupNow">💾 Сделать бэкап сейчас</button>
+        <button class="btn sm cyan" id="btnHydrate">↻ Загрузить из папки</button>
+        <button class="btn sm ghost" id="btnDisconnect">Отключить папку</button>
+      </div>`;
+    el("btnSaveNow").onclick = async ()=>{ try{ await writeStateToDisk(); toast("Сохранено на диск ✓"); }catch(e){ toast("Ошибка: "+e.message,true);} };
+    el("btnBackupNow").onclick = backupNow;                 // форс-снапшот текущей датой
+    el("btnHydrate").onclick = ()=> hydrateFromDisk(true); // ручной re-hydrate из state.json
+    el("btnDisconnect").onclick = disconnectFolder;
+    return;
+  }
+  if(pendingHandle){
+    box.innerHTML = `<span class="fs-dot warn"></span><b>Папка выбрана, но нужен доступ</b>
+      <div class="tiny faint" style="margin-top:4px">Браузер требует подтверждения после перезагрузки.</div>
+      <div class="btnrow" style="margin-top:8px"><button class="btn sm primary" id="btnReauth">🔓 Восстановить доступ</button></div>`;
+    el("btnReauth").onclick = reauthorizeFolder;
+    return;
+  }
+  box.innerHTML = `<span class="fs-dot off"></span><b>Папка не подключена</b>
+    <div class="tiny faint" style="margin-top:4px">Без подключённой папки данные живут только в этом браузере (localStorage) — их можно потерять при чистке. Подключи папку проекта для durable-сохранения в <span class="mono">data/state.json</span>.</div>
+    <div class="btnrow" style="margin-top:8px"><button class="btn sm primary" id="btnConnect">📂 Подключить папку проекта</button></div>`;
+  el("btnConnect").onclick = connectFolder;
+}
+
+/* ---------- Даты ----------
+   Единая система: «номер дня» = целое число суток от эпохи, посчитанное через Date.UTC
+   от КОМПОНЕНТОВ локальной даты. Это делает номер дня и ISO-строку взаимно-обратными
+   в любой таймзоне (без «сползания» на сутки при положительном UTC-offset). */
+function todayISO(d=new Date()){
+  // локальная календарная дата в формате YYYY-MM-DD
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function isoToDayNum(iso){ const [y,m,d]=iso.split("-").map(Number); return Math.floor(Date.UTC(y,m-1,d)/86400000); }
+function daysSinceEpochLocal(d=new Date()){
+  // номер сегодняшнего локального дня — детерминирован для дневной ротации
+  return isoToDayNum(todayISO(d));
+}
+
+/* ---------- Стрик: считаем по уникальным датам сессий ---------- */
+function practiceDates(){ return [...new Set(state.sessions.map(s=>s.date))].sort(); }
+function computeStreak(){
+  const set = new Set(practiceDates());
+  if(set.size===0) return 0;
+  const today = daysSinceEpochLocal();
+  // стрик засчитывается, если практиковались сегодня или вчера (чтобы день не «сгорал» до полуночи)
+  let anchor = set.has(dayNum(today)) ? today : (set.has(dayNum(today-1)) ? today-1 : null);
+  if(anchor===null) return 0;
+  let streak=0, cur=anchor;
+  while(set.has(dayNum(cur))){ streak++; cur--; }
+  return streak;
+}
+function dayNum(n){ // номер дня → ISO-строка; точный обратный к isoToDayNum (через getUTC*)
+  const d=new Date(n*86400000);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`;
+}
+
+/* ---------- SRS (SM-2-lite) ---------- */
+const MASTER_REPS = 4, MASTER_INTERVAL = 21; // «освоено»: >=4 повторов и интервал >=21 дн
+function newCard(cloze, answer, explanation, category="error"){
+  return { id:"c"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+    cloze, answer, explanation, category, ease:2.5, interval:0, reps:0,
+    lapses:0, suspended:false,   // leech-механика: счётчик провалов + отложена ли карта
+    dueDate:todayISO(), created:todayISO() };
+}
+/* Метаданные категорий карточек — для бейджей и группировки */
+const CATEGORY_META = {
+  error:     {label:"ошибка",     cls:"cat-error"},
+  vocab:     {label:"слово",      cls:"cat-vocab"},
+  idiom:     {label:"идиома",     cls:"cat-idiom"},
+  connector: {label:"связка",     cls:"cat-connector"}
+};
+function catOf(card){ return card && card.category && CATEGORY_META[card.category] ? card.category : "error"; } // legacy → error
+function catBadge(category){ const m=CATEGORY_META[category]||CATEGORY_META.error; return `<span class="cat ${m.cls}">${m.label}</span>`; }
+function gradeCard(card, grade){
+  // desired retention ~85-90%: аккуратные множители, лёгкий рост ease
+  if(grade==="again"){
+    card.reps=0; card.interval=1; card.ease=Math.max(1.3, card.ease-0.2);
+    card.lapses=(card.lapses||0)+1; // провал → инкремент leech-счётчика
+  }else if(grade==="hard"){
+    card.reps++; card.ease=Math.max(1.3, card.ease-0.15);
+    card.interval = card.interval<1 ? 1 : Math.max(1, Math.round(card.interval*1.2));
+  }else if(grade==="good"){
+    card.reps++;
+    card.interval = card.interval<1 ? 1 : (card.reps===1 ? 3 : Math.round(card.interval*card.ease));
+  }else if(grade==="easy"){
+    card.reps++; card.ease=card.ease+0.15;
+    card.interval = card.interval<1 ? 2 : Math.round(card.interval*card.ease*1.35);
+  }
+  const due=new Date(); due.setDate(due.getDate()+card.interval);
+  card.dueDate=todayISO(due);
+  return card;
+}
+function isDue(card){ return !card.suspended && isoToDayNum(card.dueDate) <= daysSinceEpochLocal(); } // suspended-карты не в ротации
+function isMastered(card){ return card.reps>=MASTER_REPS && card.interval>=MASTER_INTERVAL; }
+function dueCards(){ return state.cards.filter(isDue); }
+
+/* ---------- Уровень флоу ---------- */
+/* ========================================================================
+   ГЕЙМИФИКАЦИЯ: XP · уровни · звания · ачивки
+   Принцип — награда за реальные усилия, а не за накручиваемые метрики.
+   ======================================================================== */
+/* Кривая уровней: cumulative порог XP(n) = 25·(n-1)·(n+2) → L1=0, L2=100, L3=250, L4=450 … */
+function xpThreshold(n){ return 25*(n-1)*(n+2); }
+function levelForXp(xp){ let n=1; while(xpThreshold(n+1)<=xp) n++; return n; }
+
+const TITLES = [
+  {name:"Rookie Speaker", min:1},
+  {name:"Phrase Collector", min:3},
+  {name:"Sentence Builder", min:5},
+  {name:"Fluent Apprentice", min:8},
+  {name:"Conversation Journeyman", min:11},
+  {name:"Collocation Craftsman", min:14},
+  {name:"Idiom Smith", min:17},
+  {name:"Discourse Navigator", min:20},
+  {name:"Executive Communicator", min:24},
+  {name:"Native-like Operator", min:28}
+];
+function titleIndexForLevel(lvl){ let idx=0; for(let i=0;i<TITLES.length;i++){ if(lvl>=TITLES[i].min) idx=i; } return idx; }
+
+const BADGES = [
+  {id:"first_words",  name:"First Words",  desc:"Первая сессия"},
+  {id:"week_warrior", name:"Week Warrior", desc:"Стрик 7 дней"},
+  {id:"consistent",   name:"Consistent",   desc:"Стрик 30 дней"},
+  {id:"card_crusher", name:"Card Crusher", desc:"100 повторов суммарно"},
+  {id:"reached_b2",   name:"Reached B2",   desc:"Composite с CEFR ≥ B2"},
+  {id:"idiom_hunter", name:"Idiom Hunter", desc:"25 идиом в банке"},
+  {id:"clean_week",   name:"Clean Week",   desc:"7 дней без новых leech"}
+];
+
+/* --- суточный / недельный сброс по локальной дате --- */
+function ensureDaily(){
+  const t=todayISO();
+  if(!state.daily || state.daily.date!==t){
+    state.daily={ date:t, xpToday:0, cardsReviewedToday:0, speakingMinutesToday:0, auditedHashes:[], evalDone:false, streakAwarded:false };
+  }
+}
+function weekKeyOf(d=new Date()){
+  const dt=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  const mondayOffset=(dt.getDay()+6)%7; dt.setDate(dt.getDate()-mondayOffset);
+  return todayISO(dt); // ключ недели = дата понедельника
+}
+function ensureWeekly(){
+  const wk=weekKeyOf();
+  if(!state.weekly || state.weekly.weekKey!==wk){ state.weekly={ weekKey:wk, sessionsThisWeek:0, bonusGiven:false }; }
+}
+function streakMult(streak){ if(streak>=30) return 2; if(streak>=7) return 1.5; return 1; }
+function hashStr(s){ let h=0; for(let i=0;i<s.length;i++){ h=(h*31 + s.charCodeAt(i))|0; } return h; }
+
+/* --- начисление XP (единая точка) --- */
+function addXp(amount, reason){
+  if(!amount || amount<=0) return;
+  ensureDaily();
+  state.xp=(state.xp||0)+amount;
+  state.daily.xpToday=(state.daily.xpToday||0)+amount;
+  const before=state.level||1;
+  const lvl=levelForXp(state.xp);
+  state.level=lvl;
+  if(lvl>before){ const t=TITLES[titleIndexForLevel(lvl)]; toast(`⭐ Уровень ${lvl} — ${t.name}!`); }
+  renderGamification(); save();
+}
+
+/* --- ачивки --- */
+function hasBadge(id){ return (state.badges||[]).includes(id); }
+function awardBadge(id){
+  if(hasBadge(id)) return false;
+  state.badges.push(id);
+  const b=BADGES.find(x=>x.id===id);
+  toast(`🏆 Ачивка: ${b?b.name:id}`);
+  return true;
+}
+function checkBadges(){
+  let changed=false;
+  const streak=computeStreak();
+  if(state.sessions.length>=1) changed|=awardBadge("first_words");
+  if(streak>=7)  changed|=awardBadge("week_warrior");
+  if(streak>=30) changed|=awardBadge("consistent");
+  if((state.totalReviews||0)>=100) changed|=awardBadge("card_crusher");
+  if(state.cards.filter(c=>catOf(c)==="idiom").length>=25) changed|=awardBadge("idiom_hunter");
+  // Clean Week: стрик ≥7 и за последние 7 дней ни одна карта не ушла в leech
+  const leechRecent = state.lastLeechDate && (daysSinceEpochLocal() - isoToDayNum(state.lastLeechDate) < 7);
+  if(streak>=7 && !leechRecent) changed|=awardBadge("clean_week");
+  if(changed){ renderGamification(); save(); }
+}
+
+/* --- XP-хуки, вызываемые из ключевых точек --- */
+function onSessionAudited(transcript){
+  ensureDaily(); ensureWeekly();
+  const h=String(hashStr(transcript||""));
+  if(!state.daily.auditedHashes.includes(h)){ state.daily.auditedHashes.push(h); addXp(50,"session"); } // +50 раз за транскрипт/день
+  if(!state.daily.streakAwarded){
+    state.daily.streakAwarded=true;
+    const streak=computeStreak();
+    addXp(Math.round(10*streakMult(streak)),"streak"); // день стрика ×множитель
+    const dow=new Date().getDay(); // 0=Вс..6=Сб
+    if(dow>=1 && dow<=5){
+      state.weekly.sessionsThisWeek=(state.weekly.sessionsThisWeek||0)+1;
+      if(state.weekly.sessionsThisWeek>=5 && !state.weekly.bonusGiven){
+        state.weekly.bonusGiven=true; addXp(100,"weekbonus"); toast("🎯 5 будних сессий за неделю — бонус +100 XP");
+      }
+    }
+  }
+  checkBadges();
+}
+function onSessionEvaluated(){
+  ensureDaily();
+  if(!state.daily.evalDone){ state.daily.evalDone=true; addXp(20,"eval"); } // +20 раз в день
+  const comp=evalResult?evalResult.composite:0;
+  if(comp>(state.bestComposite||0)){ state.bestComposite=comp; addXp(50,"record"); toast("📈 Новый рекорд composite! +50 XP"); }
+  if(evalResult && (evalResult.cefr==="B2"||evalResult.cefr==="C1")) awardBadge("reached_b2");
+  checkBadges();
+}
+let reviewAwarded = new Set(); // карты, за которые уже начислили XP в этой сессии ревью
+function onCardReviewed(card){
+  ensureDaily();
+  state.totalReviews=(state.totalReviews||0)+1;
+  // +5 только за реально-due карту, один раз за сессию ревью, суточный кап 20 карт (=100 XP)
+  if(!reviewAwarded.has(card.id) && (state.daily.cardsReviewedToday||0)<20){
+    reviewAwarded.add(card.id);
+    state.daily.cardsReviewedToday=(state.daily.cardsReviewedToday||0)+1;
+    addXp(5,"review");
+  }
+  checkBadges();
+}
+
+/* ========================================================================
+   ТАЙМЕР ПРАКТИКИ (речь вслух) + XP за длительность
+   ======================================================================== */
+let speakStart=null, speakTick=null;
+function isTimerRunning(){ return speakStart!==null; }
+function startSpeakTimer(){
+  if(speakStart) return;
+  speakStart=Date.now();
+  renderTimerUI();
+  speakTick=setInterval(renderTimerUI,1000);
+}
+function elapsedSpeakMin(){ return speakStart? (Date.now()-speakStart)/60000 : 0; }
+/* Стоп таймера → засчёт минут. Единственный контрол — кнопка ChatGPT (ручной стоп). */
+function stopSpeakTimer(){
+  if(!speakStart) return;
+  const mins=Math.min(elapsedSpeakMin(), 90); // потолок одной сессии в метрику — 90 мин
+  clearInterval(speakTick); speakTick=null; speakStart=null;
+  renderTimerUI();
+  const rounded=Math.round(mins*10)/10;
+  if(rounded<0.1){ toast("Слишком коротко — не засчитано"); return; }
+  recordSpeakingMinutes(rounded);
+}
+function recordSpeakingMinutes(mins){
+  if(mins<=0) return;
+  ensureDaily();
+  state.totalSpeakingMinutes=Math.round(((state.totalSpeakingMinutes||0)+mins)*10)/10;
+  attachMinutesToSession(mins);
+  // XP: +2/мин, суточный кап 60 мин
+  const room=Math.max(0, 60-(state.daily.speakingMinutesToday||0));
+  const xpMin=Math.min(mins, room);
+  const xp=Math.round(xpMin*2);
+  state.daily.speakingMinutesToday=Math.round(((state.daily.speakingMinutesToday||0)+mins)*10)/10;
+  if(xp>0) addXp(xp,"speaking"); else save();
+  renderTimerUI(); renderAll();
+  toast(xp>0 ? `Записал ${mins} мин речи (+${xp} XP)` : `Записал ${mins} мин речи (XP-лимит на сегодня достигнут)`);
+}
+function attachMinutesToSession(mins){
+  let s=null;
+  if(currentAudit && currentAudit.sessionIdx!=null) s=state.sessions[currentAudit.sessionIdx];
+  if(!s){ for(let i=state.sessions.length-1;i>=0;i--){ if(state.sessions[i].date===todayISO()){ s=state.sessions[i]; break; } } }
+  if(s) s.minutes=Math.round(((s.minutes||0)+mins)*10)/10; // если сессии нет — минуты только в total
+}
+
+/* ========================================================================
+   SVG-иконки наград/званий (бесповторные inline-эмблемы, тёплая тема)
+   ======================================================================== */
+function svgCircle(inner){
+  return `<svg viewBox="0 0 48 48" class="emblem-svg" xmlns="http://www.w3.org/2000/svg"><circle cx="24" cy="24" r="20" fill="var(--panel)" stroke="var(--amber)" stroke-width="2"/>${inner}</svg>`;
+}
+const BADGE_SVG = {
+  // микрофон
+  first_words: svgCircle(`<rect x="20" y="13" width="8" height="15" rx="4" fill="var(--amber-glow)" stroke="var(--amber)" stroke-width="2"/><path d="M16 25a8 8 0 0 0 16 0" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"/><line x1="24" y1="33" x2="24" y2="37" stroke="var(--amber)" stroke-width="2"/><line x1="20" y1="37" x2="28" y2="37" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"/>`),
+  // пламя + 7
+  week_warrior: svgCircle(`<path d="M24 12c4 5 6 7 6 12a6 6 0 0 1-12 0c0-3 2-4 3-6 1 2 2 2 3 3 0-4 0-6-0-9z" fill="var(--amber-glow)" stroke="var(--amber)" stroke-width="2"/><text x="24" y="40" font-size="9" font-family="monospace" fill="var(--amber)" text-anchor="middle" font-weight="700">7</text>`),
+  // календарь
+  consistent: svgCircle(`<rect x="14" y="15" width="20" height="18" rx="2" fill="var(--panel)" stroke="var(--amber)" stroke-width="2"/><line x1="14" y1="20" x2="34" y2="20" stroke="var(--amber)" stroke-width="2"/><line x1="19" y1="13" x2="19" y2="17" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"/><line x1="29" y1="13" x2="29" y2="17" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"/><circle cx="20" cy="25" r="1.4" fill="var(--amber)"/><circle cx="24" cy="25" r="1.4" fill="var(--amber)"/><circle cx="28" cy="25" r="1.4" fill="var(--amber)"/><circle cx="20" cy="29" r="1.4" fill="var(--amber)"/><circle cx="24" cy="29" r="1.4" fill="var(--amber)"/>`),
+  // стопка карт
+  card_crusher: svgCircle(`<rect x="16" y="20" width="16" height="11" rx="2" transform="rotate(-9 24 25)" fill="var(--panel)" stroke="var(--amber)" stroke-width="1.7"/><rect x="17" y="19" width="16" height="11" rx="2" transform="rotate(4 24 24)" fill="var(--amber-glow)" stroke="var(--amber)" stroke-width="1.7"/><path d="M20 24l3 3 6-6" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`),
+  // восходящий график + B2
+  reached_b2: svgCircle(`<path d="M15 30l5-5 4 3 7-8" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M28 20h4v4" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="24" y="40" font-size="8.5" font-family="monospace" fill="var(--amber)" text-anchor="middle" font-weight="700">B2</text>`),
+  // речевой пузырь с кавычками
+  idiom_hunter: svgCircle(`<path d="M14 18h20v13H24l-5 5v-5h-5z" fill="var(--amber-glow)" stroke="var(--amber)" stroke-width="2" stroke-linejoin="round"/><path d="M20 23c-2 0-3 1-3 3h2v2h-2m8-5c-2 0-3 1-3 3h2v2h-2" fill="none" stroke="var(--amber)" stroke-width="1.6"/>`),
+  // метла / чистота
+  clean_week: svgCircle(`<line x1="31" y1="15" x2="22" y2="26" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"/><path d="M22 26l-6 3 3 6 8-4z" fill="var(--amber-glow)" stroke="var(--amber)" stroke-width="2" stroke-linejoin="round"/><path d="M17 30l2 4M21 28l2 4" stroke="var(--amber)" stroke-width="1.4"/>`)
+};
+/* Звания — «лычки» с числом лучей = ранг (1..10), ядро богатеет с рангом */
+function titleSvg(rank){
+  const cx=24, cy=24; let rays="";
+  for(let i=0;i<rank;i++){
+    const a=(-90 + i*(360/rank))*Math.PI/180;
+    const x1=(cx+15*Math.cos(a)).toFixed(1), y1=(cy+15*Math.sin(a)).toFixed(1);
+    const x2=(cx+21*Math.cos(a)).toFixed(1), y2=(cy+21*Math.sin(a)).toFixed(1);
+    rays+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"/>`;
+  }
+  const core = rank>=8
+    ? `<path d="M24 15l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" fill="var(--amber)"/>`
+    : rank>=4
+      ? `<circle cx="24" cy="24" r="7" fill="var(--amber-glow)" stroke="var(--amber)" stroke-width="2"/><circle cx="24" cy="24" r="2.6" fill="var(--amber)"/>`
+      : `<circle cx="24" cy="24" r="6" fill="none" stroke="var(--amber)" stroke-width="2"/><circle cx="24" cy="24" r="2.2" fill="var(--amber)"/>`;
+  return `<svg viewBox="0 0 48 48" class="emblem-svg" xmlns="http://www.w3.org/2000/svg"><circle cx="24" cy="24" r="20" fill="var(--panel)" stroke="var(--amber)" stroke-width="2"/>${rays}${core}</svg>`;
+}
+function emblem(svg, active, title){
+  return `<span class="emblem ${active?"":"locked"}" title="${escapeHtml(title||"")}">${svg}</span>`;
+}
+
+/* ========================================================================
+   Рендер геймификации: шапка (звание+уровень+XP-бар) + блок «Достижения»
+   ======================================================================== */
+function renderGamification(){
+  ensureDaily();
+  const xp=state.xp||0, lvl=state.level||levelForXp(xp);
+  const ti=titleIndexForLevel(lvl), title=TITLES[ti];
+  const cur=xpThreshold(lvl), next=xpThreshold(lvl+1);
+  const pct = next>cur ? Math.round((xp-cur)/(next-cur)*100) : 100;
+  const remain = Math.max(0, next-xp);
+  const box=el("gTitleEmblem"); if(box) box.innerHTML=titleSvg(ti+1);
+  if(el("gTitle")) el("gTitle").textContent=title.name;
+  if(el("gLevel")) el("gLevel").textContent="Ур. "+lvl;
+  if(el("gXp")) el("gXp").textContent=xp+" XP";
+  if(el("gXpFill")) el("gXpFill").style.width=pct+"%";
+  if(el("gXpNext")) el("gXpNext").textContent=`до ур. ${lvl+1}: ${remain} XP`;
+  renderAchievements();
+}
+function renderAchievements(){
+  const earnedCount = (state.badges||[]).length;
+  // --- компактный чип в шапке: иконки полученных ачивок (до 4) + счётчик ---
+  const chipIcons = el("achChipIcons");
+  if(chipIcons){
+    const earned = BADGES.filter(b=> hasBadge(b.id));
+    const shown = earned.slice(0,4).map(b=> `<span class="ach-mini" title="${escapeHtml(b.name)}">${BADGE_SVG[b.id]}</span>`).join("");
+    const more = earned.length>4 ? `<span class="ach-more">+${earned.length-4}</span>` : "";
+    chipIcons.innerHTML = shown + more;
+  }
+  const chipCount = el("achChipCount");
+  if(chipCount) chipCount.textContent = `🏅 ${earnedCount}/${BADGES.length}`;
+
+  // --- поповер со ВСЕМИ ачивками (+ звания), свёрнут по умолчанию ---
+  const pop = el("achPopover"); if(!pop) return;
+  const lvl=state.level||1;
+  const badgeRows = BADGES.map(b=>{
+    const on=hasBadge(b.id);
+    return `<div class="ach-item ${on?"":"locked"}">
+      <span class="ach-item-ico">${BADGE_SVG[b.id]}</span>
+      <span class="ach-item-txt"><b>${escapeHtml(b.name)}</b><span class="tiny faint">${escapeHtml(b.desc)}${on?"":" · не открыто"}</span></span>
+    </div>`;
+  }).join("");
+  const titleRows = TITLES.map((t,i)=>{
+    const on=lvl>=t.min;
+    return `<span class="ach-title-emb ${on?"":"locked"}" title="${escapeHtml(t.name)} — с ур. ${t.min}${on?"":" (не открыто)"}">${titleSvg(i+1)}</span>`;
+  }).join("");
+  pop.innerHTML = `
+    <div class="ach-pop-h">Ачивки · ${earnedCount}/${BADGES.length}</div>
+    <div class="ach-list">${badgeRows}</div>
+    <div class="ach-pop-h" style="margin-top:12px">Звания</div>
+    <div class="ach-title-row">${titleRows}</div>`;
+}
+/* показать/скрыть поповер ачивок */
+function toggleAchPopover(force){
+  const pop=el("achPopover"), chip=el("achChip"); if(!pop||!chip) return;
+  const open = force!==undefined ? force : !pop.classList.contains("open");
+  pop.classList.toggle("open", open);
+  chip.setAttribute("aria-expanded", open?"true":"false");
+}
+function renderTimerUI(){
+  const btn=el("btnOpenChatGPT"); if(!btn) return;
+  const running=isTimerRunning();
+  btn.classList.toggle("running", running);       // CSS переключает idle/running-надписи
+  const t=el("cgTime");
+  if(t){
+    const sec = running ? Math.floor((Date.now()-speakStart)/1000) : 0;
+    t.textContent=`${String(Math.floor(sec/60)).padStart(2,"0")}:${String(sec%60).padStart(2,"0")}`;
+  }
+  const hint=el("cgHint");
+  if(hint) hint.textContent = running
+    ? "Идёт разговор — говорите вслух. Нажмите ⏹, чтобы засчитать время."
+    : "Голосовой режим Gemini доступен только в мобильном приложении — на десктопе используй ChatGPT.";
+}
+function fmtMinutes(mins){
+  const m=Math.round(mins);
+  if(m<60) return `${m} мин`;
+  return `${Math.floor(m/60)} ч ${m%60} мин`;
+}
+
+/* ========================================================================
+   OpenRouter вызов
+   ======================================================================== */
+const DEFAULT_BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
+async function callLLM(systemMsg, userMsg, temperature=0.4){
+  const key = state.settings.apiKey && state.settings.apiKey.trim();
+  if(!key) throw new Error("Не задан API-ключ провайдера. Открой «Настройки» и вставь ключ.");
+  const model = currentModel();
+  const baseUrl = (state.settings.baseUrl && state.settings.baseUrl.trim()) || DEFAULT_BASE_URL; // backward-compat
+  const res = await fetch(baseUrl,{
+    method:"POST",
+    headers:{
+      "Authorization":"Bearer "+key,
+      "Content-Type":"application/json",
+      "HTTP-Referer":"https://english-cockpit.local", // безвредно для не-OpenRouter эндпоинтов
+      "X-Title":"My English Cockpit"
+    },
+    body:JSON.stringify({ model, temperature,
+      messages:[{role:"system",content:systemMsg},{role:"user",content:userMsg}] })
+  });
+  if(!res.ok){
+    let detail="";
+    try{ const j=await res.json(); detail=j.error?.message || JSON.stringify(j); }catch(e){ detail=await res.text().catch(()=> ""); }
+    throw new Error(`Провайдер ответил ${res.status}. ${detail||"Проверь ключ, модель, эндпоинт и баланс."}`);
+  }
+  const data = await res.json();
+  const content = data?.choices?.[0]?.message?.content;
+  if(!content) throw new Error("Пустой ответ модели.");
+  return content;
+}
+function currentModel(){
+  const sel = document.getElementById("selModel").value;
+  if(sel==="__custom"){ return (document.getElementById("inCustomModel").value||"").trim() || "anthropic/claude-sonnet-4.5"; }
+  return sel;
+}
+/* Снимаем ```json ... ``` ограждения и вытаскиваем JSON */
+function extractJSON(text){
+  let t = text.trim();
+  // убрать fenced-блоки
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if(fence) t = fence[1].trim();
+  // если модель добавила текст до/после — берём от первой [ или { до парной последней
+  const firstArr = t.indexOf("["), firstObj = t.indexOf("{");
+  let start = -1, openCh, closeCh;
+  if(firstArr!==-1 && (firstObj===-1 || firstArr<firstObj)){ start=firstArr; openCh="["; closeCh="]"; }
+  else if(firstObj!==-1){ start=firstObj; openCh="{"; closeCh="}"; }
+  if(start!==-1){
+    const end = t.lastIndexOf(closeCh);
+    if(end>start) t = t.slice(start,end+1);
+  }
+  return JSON.parse(t);
+}
+
+/* ========================================================================
+   UI: рендеры
+   ======================================================================== */
+function el(id){ return document.getElementById(id); }
+
+function renderHeader(){
+  const streak = computeStreak();
+  el("gStreak").textContent = streak;
+  el("gSessions").textContent = state.sessions.length;
+  const d = new Date();
+  el("gDate").textContent = `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}`;
+  renderGamification(); // звание + уровень + XP-бар вместо старого «уровня флоу»
+}
+
+/* ---------- Ролёвка ---------- */
+let manualScenarioIndex = null; // ручной выбор (не влияет на «сегодня»)
+function currentScenarioIndex(){
+  if(manualScenarioIndex!==null) return manualScenarioIndex;
+  return daysSinceEpochLocal() % SCENARIOS.length; // детерминированная ротация по дню
+}
+function renderScenario(){
+  const i = currentScenarioIndex();
+  const [title,desc] = SCENARIOS[i];
+  el("scTitle").textContent = title;
+  el("scDesc").textContent = desc;
+  el("scDay").textContent = manualScenarioIndex!==null ? "выбор вручную" : "сегодня";
+  el("scPrompt").textContent = STRICT_PROMPT_TEMPLATE.replace("{{SCENARIO}}", title);
+}
+
+/* ========================================================================
+   Разбор сессии: богатый ответ аудитора (6 секций) + добавление в банк
+   ======================================================================== */
+let auditData = null;    // весь нормализованный ответ; элементы удаляются по мере добавления в банк
+let currentAudit = null; // {transcript, scenario, sessionIdx} — привязка к записи сессии
+
+/* Нормализация ответа модели: терпима к частичному JSON и к старому формату (массив = errors) */
+function normalizeAudit(obj){
+  if(Array.isArray(obj)) obj = { errors: obj }; // обратная совместимость со старым промптом
+  const A = x => Array.isArray(x) ? x : [];
+  const cloze = a => A(a).filter(e=>e && e.cloze && e.answer)
+    .map(e=>({cloze:String(e.cloze), answer:String(e.answer), explanation:String(e.explanation||"")}));
+  return {
+    errors:      cloze(obj.errors),
+    vocab:       cloze(obj.vocab),
+    idioms:      A(obj.idioms).filter(e=>e && e.phrase)
+                   .map(e=>({phrase:String(e.phrase), meaning_ru:String(e.meaning_ru||""), example:String(e.example||"")})),
+    connectors:  A(obj.connectors).filter(e=>e && e.phrase)
+                   .map(e=>({phrase:String(e.phrase), use_ru:String(e.use_ru||""), example:String(e.example||"")})),
+    say_aloud:   A(obj.say_aloud).map(String),
+    pattern_focus: String(obj.pattern_focus||"")
+  };
+}
+
+/* Секция → как превратить её элемент в поля карточки + категорию */
+function mapAuditItem(sec, item){
+  if(sec==="errors")     return {fields:item, category:"error"};
+  if(sec==="vocab")      return {fields:item, category:"vocab"};
+  if(sec==="idioms")     return {fields:{cloze:item.phrase, answer:item.meaning_ru, explanation:item.example}, category:"idiom"};
+  if(sec==="connectors") return {fields:{cloze:item.phrase, answer:item.use_ru, explanation:item.example}, category:"connector"};
+}
+
+/* Гарантирует запись сессии для текущего разбора (создаётся при успешном аудите) */
+function ensureAuditSession(){
+  if(currentAudit && currentAudit.sessionIdx!=null) return state.sessions[currentAudit.sessionIdx];
+  return null;
+}
+
+/* Положить одну карточку в банк + в лог сессии */
+function pushCardFromFields(f, category){
+  state.cards.push(newCard(f.cloze, f.answer, f.explanation, category));
+  const sess = ensureAuditSession();
+  if(sess) sess.cards.push({cloze:f.cloze, answer:f.answer, explanation:f.explanation, category});
+}
+
+/* Сколько НОВЫХ карт добавлено сегодня (по дате created) */
+function newCardsToday(){ const t=todayISO(); return state.cards.filter(c=>c.created===t).length; }
+/* Мягкое предупреждение о лавине повторов */
+function warnCardCap(){
+  const lim = state.settings.newCardLimit ?? 15;
+  const n = newCardsToday();
+  if(n>lim) toast(`Добавлено ${n} новых карт сегодня — риск лавины повторов, рекомендую ≤${lim}`, true);
+}
+
+/* Добавить один элемент секции */
+function addAuditItem(sec, i){
+  const item = auditData[sec][i]; if(!item) return;
+  const {fields, category} = mapAuditItem(sec, item);
+  pushCardFromFields(fields, category);
+  auditData[sec].splice(i,1);
+  save(); renderAll(); renderAuditSections(); warnCardCap();
+}
+/* Добавить всю секцию */
+function addAuditSection(sec){
+  const n = auditData[sec].length; if(n===0) return;
+  auditData[sec].forEach(item=>{ const m=mapAuditItem(sec,item); pushCardFromFields(m.fields,m.category); });
+  auditData[sec] = [];
+  save(); renderAll(); renderAuditSections();
+  toast(`Добавлено в банк: ${n}`);
+  warnCardCap(); // предупреждение показываем последним, чтобы оно не перекрылось
+}
+/* Удалить/править кандидата (только cloze-секции errors/vocab) */
+function delAuditItem(sec, i){ auditData[sec].splice(i,1); renderAuditSections(); }
+function editAuditItem(sec, i){
+  const c = auditData[sec][i]; if(!c) return;
+  const cloze=prompt("Cloze-предложение (маска ___):", c.cloze); if(cloze===null) return;
+  const answer=prompt("Ответ (что в пропуске):", c.answer); if(answer===null) return;
+  const exp=prompt("Пояснение (RU):", c.explanation) ?? c.explanation;
+  auditData[sec][i]={cloze,answer,explanation:exp}; renderAuditSections();
+}
+
+/* ========================================================================
+   Рендер разбора: КОЛОДА карточек с листанием (основной вид) + список (fallback)
+   ======================================================================== */
+let auditView = "deck";   // 'deck' | 'list'
+let deck = null;          // массив записей колоды
+let deckIdx = 0;
+
+const SEC_META = {
+  errors:     {cat:"error",     phrase:false},
+  vocab:      {cat:"vocab",     phrase:false},
+  idioms:     {cat:"idiom",     phrase:true, backKey:"meaning_ru"},
+  connectors: {cat:"connector", phrase:true, backKey:"use_ru"}
+};
+
+/* Собрать колоду из auditData: [intro?] + solution-карточки (errors/vocab/idioms/connectors) + summary */
+function buildDeck(){
+  if(!auditData){ deck=null; deckIdx=0; return; }
+  const d=[];
+  if((auditData.say_aloud&&auditData.say_aloud.length) || auditData.pattern_focus) d.push({type:"intro"});
+  ["errors","vocab","idioms","connectors"].forEach(sec=>{
+    (auditData[sec]||[]).forEach(item=> d.push({type:"card", sec, item, status:"pending"}));
+  });
+  d.push({type:"summary"});
+  deck=d; deckIdx=0;
+}
+function deckSolutionCount(){ return deck ? deck.filter(e=>e.type==="card").length : 0; }
+function deckStats(){
+  const added = deck.filter(e=>e.type==="card"&&e.status==="added").length;
+  const skipped = deck.filter(e=>e.type==="card"&&e.status==="skipped").length;
+  return {added, skipped};
+}
+function deckNext(){ if(deck && deckIdx<deck.length-1){ deckIdx++; } renderAuditSections(); }
+function deckPrev(){ if(deck && deckIdx>0){ deckIdx--; } renderAuditSections(); }
+function deckAddCurrent(){
+  const e=deck[deckIdx]; if(!e||e.type!=="card"||e.status!=="pending") return;
+  const arr=auditData[e.sec]; const pos=arr.indexOf(e.item);
+  if(pos!==-1){ const m=mapAuditItem(e.sec,e.item); pushCardFromFields(m.fields,m.category); arr.splice(pos,1); } // guard от дублей
+  e.status="added";
+  save(); renderAll();
+  toast("В банк ✓"); warnCardCap();
+  deckNext();
+}
+function deckSkipCurrent(){
+  const e=deck[deckIdx]; if(!e||e.type!=="card"||e.status!=="pending") return;
+  e.status="skipped";
+  deckNext();
+}
+function clearAudit(){
+  auditData=null; currentAudit=null; deck=null; deckIdx=0;
+  el("auditResult").innerHTML=""; el("txTranscript").value="";
+  toast("Разбор очищен");
+}
+
+/* Диспетчер: тулбар переключения вида + нужный рендер */
+function renderAuditSections(){
+  const box = el("auditResult");
+  if(!auditData){ box.innerHTML=""; return; }
+  const toolbar = `<div class="audit-toolbar">
+    <span class="dim tiny up">Разбор</span>
+    <div class="seg">
+      <button class="seg-btn ${auditView==="deck"?"on":""}" data-audit-view="deck">🃏 Колода</button>
+      <button class="seg-btn ${auditView==="list"?"on":""}" data-audit-view="list">📋 Списком</button>
+    </div>
+  </div>`;
+  box.innerHTML = toolbar + (auditView==="list" ? buildListHTML() : buildDeckHTML());
+}
+
+/* --- ВИД: КОЛОДА --- */
+function buildDeckHTML(){
+  if(!deck) buildDeck();
+  const e = deck[deckIdx];
+  const solTotal = deckSolutionCount();
+
+  if(e.type==="intro"){
+    const aloud = (auditData.say_aloud||[]).map(p=>`<div class="aloud-item">“${escapeHtml(p)}”</div>`).join("");
+    return `<div class="deck">
+      <div class="deck-card intro">
+        <div class="deck-kicker">🗣 Перед разбором — проговори вслух</div>
+        <div class="aloud">${aloud||'<div class="empty">— нет фраз —</div>'}</div>
+        ${auditData.pattern_focus?`<div class="pattern" style="margin-top:12px">🎯 ${escapeHtml(auditData.pattern_focus)}</div>`:""}
+        <div class="deck-actions"><button class="btn primary" data-deck="next">Начать колоду ›</button></div>
+      </div>
+    </div>`;
+  }
+
+  if(e.type==="summary"){
+    const {added,skipped}=deckStats();
+    return `<div class="deck">
+      <div class="deck-card summary">
+        <div class="deck-kicker">🏁 Разбор пройден</div>
+        <div class="sum-row"><span class="sum-n" style="color:var(--green)">${added}</span> добавлено в банк</div>
+        <div class="sum-row"><span class="sum-n" style="color:var(--ink-faint)">${skipped}</span> пропущено</div>
+        ${auditData.pattern_focus?`<div class="pattern" style="margin-top:12px">🎯 Фокус на след. сессию: ${escapeHtml(auditData.pattern_focus)}</div>`:""}
+        <div class="deck-actions">
+          <button class="btn ghost" data-deck="prev">‹ Назад</button>
+          <button class="btn primary" data-deck="done">✓ Готово</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // solution-карточка
+  const meta = SEC_META[e.sec];
+  const solPos = deck.slice(0,deckIdx+1).filter(x=>x.type==="card").length; // 1-based
+  const pct = solTotal? Math.round(solPos/solTotal*100) : 0;
+  let body;
+  if(meta.phrase){
+    const it=e.item;
+    body = `<div class="cloze">${escapeHtml(it.phrase)}</div>
+      <div class="tiny" style="margin-top:7px">→ <span class="ans">${escapeHtml(it[meta.backKey]||"")}</span></div>
+      ${it.example?`<div class="exp"><i>${escapeHtml(it.example)}</i></div>`:""}`;
+  }else{
+    const it=e.item;
+    body = `<div class="cloze">${escapeHtml(it.cloze)}</div>
+      <div class="tiny" style="margin-top:7px">→ <span class="ans">${escapeHtml(it.answer)}</span></div>
+      <div class="exp">${escapeHtml(it.explanation||"")}</div>`;
+  }
+  const acted = e.status!=="pending";
+  const actions = acted
+    ? `<div class="deck-status ${e.status}">${e.status==="added"?"✓ добавлена в банк":"✕ пропущена"}</div>`
+    : `<div class="deck-actions">
+         <button class="btn primary" data-deck="add">＋ В банк</button>
+         <button class="btn ghost" data-deck="skip">✕ Пропустить</button>
+       </div>`;
+  return `<div class="deck">
+    <div class="deck-card" id="deckCard">
+      <div class="deck-head">
+        ${catBadge(meta.cat)}
+        <span class="deck-counter mono">${solPos} / ${solTotal}</span>
+      </div>
+      <div class="deck-prog"><div class="deck-prog-fill" style="width:${pct}%"></div></div>
+      <div class="deck-body">${body}</div>
+      ${actions}
+      <div class="deck-nav">
+        <button class="btn sm ghost" data-deck="prev" ${deckIdx===0?"disabled":""}>‹</button>
+        <span class="tiny faint">свайп / ← →</span>
+        <button class="btn sm ghost" data-deck="next">›</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* --- ВИД: СПИСОК (fallback, прежняя линейная подача) --- */
+function buildListHTML(){
+  const d = auditData;
+  let html = "";
+  const clozeSection = (sec, title, emptyMsg) => {
+    const items = d[sec];
+    let h = `<div class="audit-sec"><div class="audit-sec-h"><span>${title}</span>`;
+    h += items.length ? `<button class="btn sm primary" data-sec="${sec}" data-act="addall">✓ Добавить все (${items.length})</button>` : "";
+    h += `</div>`;
+    if(items.length===0){ h += `<div class="empty">${emptyMsg}</div></div>`; return h; }
+    items.forEach((c,idx)=>{
+      h += `<div class="errcard">
+        <div class="cloze">${escapeHtml(c.cloze)}</div>
+        <div class="tiny" style="margin-top:5px">→ <span class="ans">${escapeHtml(c.answer)}</span></div>
+        <div class="exp">${escapeHtml(c.explanation||"")}</div>
+        <div class="row">
+          <button class="btn sm cyan" data-sec="${sec}" data-act="add" data-i="${idx}">＋ в банк</button>
+          <button class="btn sm ghost" data-sec="${sec}" data-act="edit" data-i="${idx}">✎</button>
+          <button class="btn sm ghost" data-sec="${sec}" data-act="del" data-i="${idx}">✕</button>
+        </div>
+      </div>`;
+    });
+    return h + `</div>`;
+  };
+  const phraseSection = (sec, title, backKey) => {
+    const items = d[sec];
+    let h = `<div class="audit-sec"><div class="audit-sec-h"><span>${title}</span>`;
+    h += items.length ? `<button class="btn sm primary" data-sec="${sec}" data-act="addall">✓ Добавить все (${items.length})</button>` : "";
+    h += `</div>`;
+    if(items.length===0){ h += `<div class="empty">— пусто —</div></div>`; return h; }
+    items.forEach((it,idx)=>{
+      h += `<div class="errcard">
+        <div class="cloze">${escapeHtml(it.phrase)}</div>
+        <div class="tiny" style="margin-top:5px"><span class="ans">${escapeHtml(it[backKey]||"")}</span></div>
+        ${it.example?`<div class="exp"><i>${escapeHtml(it.example)}</i></div>`:""}
+        <div class="row"><button class="btn sm cyan" data-sec="${sec}" data-act="add" data-i="${idx}">＋ в банк</button></div>
+      </div>`;
+    });
+    return h + `</div>`;
+  };
+  html += clozeSection("errors", "🛠 Ошибки", "Ошибок не найдено. Чисто! 👌");
+  html += `<div class="audit-sec"><div class="audit-sec-h"><span>🗣 Скажи вслух</span></div>`;
+  if(d.say_aloud.length){ html += `<div class="aloud">` + d.say_aloud.map(p=>`<div class="aloud-item">“${escapeHtml(p)}”</div>`).join("") + `</div>`; }
+  else html += `<div class="empty">— пусто —</div>`;
+  html += `</div>`;
+  if(d.pattern_focus){ html += `<div class="audit-sec"><div class="audit-sec-h"><span>🎯 Паттерн-фокус</span></div><div class="pattern">${escapeHtml(d.pattern_focus)}</div></div>`; }
+  html += phraseSection("idioms", "💬 Идиомы под ситуацию", "meaning_ru");
+  html += phraseSection("connectors", "🔗 Связки и переходы", "use_ru");
+  html += clozeSection("vocab", "📖 Слова-пробелы", "— пусто —");
+  html += `<div class="btnrow"><button class="btn ghost" id="btnAuditDone">✓ Готово — очистить разбор</button></div>`;
+  return html;
+}
+
+/* ---------- SRS виджет ---------- */
+function renderSRS(){
+  const total = state.cards.length;
+  const due = dueCards().length;
+  const mastered = state.cards.filter(isMastered).length;
+  el("sTotal").textContent = total;
+  el("sDue").textContent = due;
+  el("sMastered").textContent = mastered;
+  el("dueCount").textContent = due;
+  el("btnStartReview").disabled = due===0;
+}
+
+/* ---------- Обзор всех карт ---------- */
+let browserOpen=false;
+function renderCardsBrowser(){
+  const box = el("cardsBrowser");
+  if(!browserOpen){ box.style.display="none"; return; }
+  box.style.display="block";
+  if(state.cards.length===0){ box.innerHTML=`<div class="empty">Банк пуст. Разбери сессию — и ошибки станут карточками.</div>`; return; }
+  const sorted = [...state.cards].sort((a,b)=> isoToDayNum(a.dueDate)-isoToDayNum(b.dueDate));
+  box.innerHTML = sorted.map(c=>`
+    <div class="errcard"${c.suspended?' style="opacity:.72"':''}>
+      <div style="margin-bottom:5px">${catBadge(catOf(c))}${c.suspended?' <span class="cat cat-leech">⏸ отложена</span>':''}</div>
+      <div class="cloze">${escapeHtml(c.cloze)}</div>
+      <div class="tiny" style="margin-top:5px">→ <span class="ans">${escapeHtml(c.answer)}</span></div>
+      <div class="exp">${escapeHtml(c.explanation||"")}</div>
+      <div class="row tiny faint mono">
+        <span>reps ${c.reps}</span><span>· interval ${c.interval}д</span>
+        <span>· ease ${c.ease.toFixed(2)}</span><span>· lapses ${c.lapses||0}</span><span>· due ${c.dueDate}</span>
+        ${isMastered(c)?'<span style="color:var(--green)">· ✓ освоено</span>':''}
+        ${c.suspended?`<button class="btn sm cyan" data-restore="${c.id}" style="margin-left:auto">Вернуть</button>`:''}
+        <button class="btn sm danger" data-delcard="${c.id}"${c.suspended?'':' style="margin-left:auto"'}>удалить</button>
+      </div>
+    </div>`).join("");
+}
+
+/* ---------- Writing coach ---------- */
+function renderCoach(result){
+  const box = el("coachOut");
+  if(!result){ box.classList.remove("active"); box.innerHTML=""; return; }
+  box.classList.add("active");
+  box.innerHTML = `
+    <div class="coach-block">
+      <h3>Отредактированная версия</h3>
+      <div class="edited">${escapeHtml(result.edited||"")}</div>
+      <div class="btnrow"><button class="btn sm cyan" id="btnCopyEdited">📋 Скопировать</button></div>
+    </div>
+    <div class="coach-block">
+      <h3>Синтаксический разбор</h3>
+      <ul>${(result.feedback||[]).map(f=>`<li>${escapeHtml(f)}</li>`).join("")||"<li class='faint'>Без замечаний.</li>"}</ul>
+    </div>`;
+  el("btnCopyEdited").onclick = ()=> copyText(result.edited||"");
+}
+
+/* ========================================================================
+   SGR-оценка разговора (Schema-Guided Reasoning)
+   ======================================================================== */
+const EVAL_CRITERIA = [
+  {key:"fluency",    label:"Беглость",    ru:"fluency"},
+  {key:"grammar",    label:"Грамматика",  ru:"grammar"},
+  {key:"lexis",      label:"Лексика",     ru:"lexis"},
+  {key:"complexity", label:"Сложность",   ru:"complexity"},
+  {key:"discourse",  label:"Связность",   ru:"discourse"},
+  {key:"task",       label:"Задача",      ru:"task"}
+];
+const EVAL_WEIGHTS = {fluency:2.5, grammar:1.5, lexis:1.5, complexity:1.5, discourse:1.5, task:1.5};
+
+let evalResult = null; // последний разобранный ответ оценщика (до сохранения)
+
+/* Нормализация SGR-ответа: терпима к частичному JSON */
+function normalizeEval(obj){
+  if(!obj || typeof obj!=="object" || Array.isArray(obj)) obj = {};
+  const critIn = Array.isArray(obj.criteria) ? obj.criteria : [];
+  const byKey = {}; critIn.forEach(c=>{ if(c && c.key) byKey[c.key]=c; });
+  const criteria = EVAL_CRITERIA.map(meta=>{
+    const c = byKey[meta.key] || {};
+    let score = Number(c.score);
+    if(!isFinite(score)) score = null;                 // нет данных — балл не выдумываем
+    else score = Math.max(0, Math.min(10, Math.round(score)));
+    return { key:meta.key, reasoning:String(c.reasoning||"N/A"), evidence:String(c.evidence||""), score };
+  });
+  // composite: берём из ответа, иначе считаем по анкерным весам из доступных баллов
+  let composite = Number(obj.composite);
+  if(!isFinite(composite)){
+    composite = criteria.reduce((s,c)=> s + (c.score||0)*(EVAL_WEIGHTS[c.key]||0), 0);
+  }
+  composite = Math.max(0, Math.min(100, Math.round(composite)));
+  const cefr = ["A2","B1","B2","C1"].includes(obj.cefr) ? obj.cefr : (obj.cefr?String(obj.cefr):"—");
+  return { summary:String(obj.summary||""), criteria, composite, cefr,
+    top_strength:String(obj.top_strength||""), top_priority:String(obj.top_priority||""),
+    verdict:String(obj.verdict||"") };
+}
+
+/* Отрисовать результат оценки */
+function renderEval(){
+  const box = el("evalResult");
+  if(!evalResult){ box.innerHTML=""; return; }
+  const e = evalResult;
+  const bars = e.criteria.map(c=>{
+    const val = c.score==null ? 0 : c.score;
+    const pct = val*10;
+    const meta = EVAL_CRITERIA.find(m=>m.key===c.key);
+    return `<div class="crit">
+      <div class="crit-h"><span>${meta.label}</span><span class="mono">${c.score==null?"—":c.score}/10</span></div>
+      <div class="crit-bar"><div class="crit-fill" style="width:${pct}%"></div></div>
+      <details class="crit-more"><summary>reasoning + цитата</summary>
+        <div class="crit-reason">${escapeHtml(c.reasoning)}</div>
+        ${c.evidence?`<div class="crit-ev">“${escapeHtml(c.evidence)}”</div>`:""}
+      </details>
+    </div>`;
+  }).join("");
+  box.innerHTML = `
+    <div class="eval-card">
+      <div class="eval-top">
+        <div class="eval-score"><div class="eval-num mono">${e.composite}</div><div class="eval-num-l">composite / 100</div></div>
+        <div class="eval-cefr"><span class="cefr-badge">${escapeHtml(e.cefr)}</span></div>
+        <div class="eval-summary">${escapeHtml(e.summary||"")}</div>
+      </div>
+      <div class="crit-grid">${bars}</div>
+      <div class="eval-notes">
+        <div><span class="eval-tag good">Сильная сторона</span> ${escapeHtml(e.top_strength||"—")}</div>
+        <div><span class="eval-tag warn">Приоритет №1</span> ${escapeHtml(e.top_priority||"—")}</div>
+        <div class="eval-verdict">${escapeHtml(e.verdict||"")}</div>
+      </div>
+      <div class="btnrow">
+        <button class="btn primary" id="btnSaveEval">💾 Сохранить оценку</button>
+        <button class="btn ghost" id="btnDiscardEval">Скрыть</button>
+      </div>
+    </div>`;
+  el("btnSaveEval").onclick = saveEvaluation;
+  el("btnDiscardEval").onclick = ()=>{ evalResult=null; renderEval(); };
+}
+
+/* Сохранить оценку в историю + привязать к сегодняшней сессии, если есть */
+function saveEvaluation(){
+  if(!evalResult) return;
+  const e = evalResult;
+  const scores = {};
+  e.criteria.forEach(c=>{ scores[c.key] = c.score; });
+  const scenario = SCENARIOS[currentScenarioIndex()][0];
+  state.evaluations.push({
+    date: todayISO(), scenario, composite:e.composite, cefr:e.cefr, scores,
+    top_strength:e.top_strength, top_priority:e.top_priority, verdict:e.verdict
+  });
+  // привязка к текущей записи сессии (если аудит уже завёл её сегодня)
+  if(currentAudit && currentAudit.sessionIdx!=null && state.sessions[currentAudit.sessionIdx]){
+    const s = state.sessions[currentAudit.sessionIdx];
+    s.composite = e.composite; s.cefr = e.cefr;
+  }
+  evalResult = null;
+  save(); renderEval(); renderAll();
+  toast("Оценка сохранена в историю ✓");
+}
+
+/* Телеметрия оценок: спарклайн composite + мини-бары последних баллов + дельта */
+function renderEvalTelemetry(){
+  const box = el("evalTelemetry");
+  const evals = state.evaluations || [];
+  if(evals.length===0){ box.innerHTML = `<div class="empty">Пока нет оценок. Нажми «📊 Оценить разговор» после практики.</div>`; return; }
+  const last = evals[evals.length-1];
+  const prev = evals.length>1 ? evals[evals.length-2] : null;
+  const delta = prev ? last.composite - prev.composite : null;
+  const deltaHtml = delta==null ? `<span class="faint">первая оценка</span>`
+    : `<span class="${delta>=0?'delta-up':'delta-down'}">${delta>=0?"▲ +":"▼ "}${delta}</span> к прошлой`;
+  // спарклайн composite
+  const comps = evals.map(e=>+e.composite).filter(v=>isFinite(v));
+  const sparkBars = comps.map(v=>`<div class="bar" style="height:${Math.max(4, v)}%" title="${v}"></div>`).join("");
+  // мини-бары последних баллов по 6 критериям
+  const critBars = EVAL_CRITERIA.map(m=>{
+    const v = (last.scores && isFinite(+last.scores[m.key])) ? +last.scores[m.key] : 0;
+    return `<div class="ecb"><div class="ecb-bar"><div class="ecb-fill" style="height:${v*10}%"></div></div><div class="ecb-l">${m.label}<br><b class="mono">${v}</b></div></div>`;
+  }).join("");
+  box.innerHTML = `
+    <div class="grid" style="gap:20px">
+      <div>
+        <div class="tiny dim">Composite по времени (${comps.length}) · последний <b class="mono">${last.composite}</b> · ${deltaHtml}</div>
+        <div class="spark" id="sparkComposite" style="height:56px">${sparkBars}</div>
+        <div class="tiny faint" style="margin-top:4px">CEFR последней: <span class="cefr-badge" style="font-size:11px">${escapeHtml(last.cefr)}</span></div>
+      </div>
+      <div>
+        <div class="tiny dim">Последние баллы по критериям (0–10)</div>
+        <div class="ecb-row">${critBars}</div>
+      </div>
+    </div>`;
+}
+
+/* ---------- Телеметрия ---------- */
+function renderTelemetry(){
+  // heatmap за 30 дней: интенсивность = число разобранных ошибок за день
+  const hm = el("heatmap"); hm.innerHTML="";
+  const perDay = {};
+  state.sessions.forEach(s=>{ perDay[s.date]=(perDay[s.date]||0)+(s.errorsCount ?? s.errorCount ?? 0)+1; });
+  const today = daysSinceEpochLocal();
+  for(let i=29;i>=0;i--){
+    const iso = dayNum(today-i);
+    const v = perDay[iso]||0;
+    let cls="cell";
+    if(v>=6) cls+=" l3"; else if(v>=3) cls+=" l2"; else if(v>=1) cls+=" l1";
+    if(i===0) cls+=" today";
+    const div=document.createElement("div");
+    div.className=cls; div.title=`${iso}: ${v?("активность "+v):"нет практики"}`;
+    hm.appendChild(div);
+  }
+  // сессий за последние 7 дней
+  const weekAgo = today-6;
+  const week = state.sessions.filter(s=> isoToDayNum(s.date)>=weekAgo).length;
+  el("tWeek").textContent = week;
+  el("tMastered").textContent = state.cards.filter(isMastered).length;
+  const total=state.cards.length, due=dueCards().length;
+  el("tDuePct").textContent = total? Math.round(due/total*100)+"%" : "0%";
+
+  // headline: суммарное время речи + за 30 дней
+  if(el("hlSpeakTotal")) el("hlSpeakTotal").textContent = fmtMinutes(state.totalSpeakingMinutes||0);
+  const spk30 = state.sessions.filter(s=> isoToDayNum(s.date)>=(today-29)).reduce((a,s)=> a+(+s.minutes||0), 0);
+  if(el("hlSpeak30")) el("hlSpeak30").textContent = fmtMinutes(spk30);
+
+  // спарклайны метрик
+  drawSpark("sparkArtic", state.metrics.map(m=>+m.artic).filter(v=>!isNaN(v)));
+  drawSpark("sparkMlt", state.metrics.map(m=>+m.mlt).filter(v=>!isNaN(v)));
+  renderEvalTelemetry(); // SGR-оценки
+}
+function drawSpark(id, vals){
+  const box = el(id); box.innerHTML="";
+  if(vals.length===0){ box.innerHTML=`<span class="tiny faint">нет замеров</span>`; return; }
+  const max=Math.max(...vals), min=Math.min(...vals);
+  vals.forEach(v=>{
+    const bar=document.createElement("div");
+    bar.className="bar";
+    const h = max===min ? 70 : 15 + (v-min)/(max-min)*85;
+    bar.style.height=h+"%";
+    bar.title=String(v);
+    box.appendChild(bar);
+  });
+}
+
+/* ---------- Настройки ---------- */
+function renderSettings(){
+  el("inKey").value = state.settings.apiKey||"";
+  const model = state.settings.model||"anthropic/claude-sonnet-4.5";
+  const sel = el("selModel");
+  const known = [...sel.options].some(o=>o.value===model);
+  if(known && model!=="__custom"){ sel.value=model; el("inCustomModel").style.display="none"; }
+  else{ sel.value="__custom"; el("inCustomModel").style.display="block"; el("inCustomModel").value=model; }
+  el("inCardLimit").value = state.settings.newCardLimit ?? 15;
+  el("inLeechThreshold").value = state.settings.leechThreshold ?? 4;
+  el("inBaseUrl").value = state.settings.baseUrl || "";
+}
+
+/* Онбординг: подсказка видна, пока не задан API-ключ */
+function updateOnboarding(){
+  const box=el("onboarding"); if(!box) return;
+  box.style.display = (state.settings.apiKey && state.settings.apiKey.trim()) ? "none" : "flex";
+}
+/* Свернуть/развернуть Настройки (состояние — в localStorage) */
+const SETTINGS_OPEN_KEY="english_cockpit_settings_open";
+function setSettingsOpen(open){
+  const body=el("settingsBody"), caret=el("settingsCaret");
+  if(body) body.style.display = open?"block":"none";
+  if(caret) caret.textContent = open?"▾":"▸";
+  localStorage.setItem(SETTINGS_OPEN_KEY, open?"1":"0");
+}
+function openSettings(){ setSettingsOpen(true); el("settingsHead").scrollIntoView({behavior:"smooth",block:"start"}); }
+
+function renderAll(){
+  renderHeader(); renderScenario(); renderSRS(); renderCardsBrowser(); renderTelemetry();
+  renderTimerUI(); updateOnboarding();
+}
+
+/* ========================================================================
+   Утилиты UI
+   ======================================================================== */
+/* XSS-защита: экранируем любое динамическое значение (LLM-ответы, ввод пользователя),
+   которое попадает в innerHTML. null/undefined → "". Канонический хелпер. */
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeHtml(s){ return esc(s); } // алиас для совместимости — все прежние вызовы идут через esc()
+let toastTimer;
+function toast(msg, isErr=false){
+  const t=el("toast"); t.textContent=msg; t.className=isErr?"show err":"show";
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.className=t.className.replace("show","").trim(), isErr?5200:2600);
+}
+/* Индикатор прогресса на время LLM-вызова: indeterminate-бар + сменяющийся статус */
+function startProgress(containerId, steps){
+  const box=el(containerId);
+  box.innerHTML = `<div class="progress">
+    <div class="progress-bar"><div class="progress-ind"></div></div>
+    <div class="progress-status mono" id="${containerId}Status">${steps[0]}</div>
+  </div>`;
+  let i=0; const st=el(containerId+"Status");
+  return setInterval(()=>{ i=Math.min(i+1, steps.length-1); if(st) st.textContent=steps[i]; }, 1100);
+}
+function stopProgress(timer){ if(timer) clearInterval(timer); }
+async function copyText(text){
+  try{
+    if(navigator.clipboard && window.isSecureContext){ await navigator.clipboard.writeText(text); }
+    else{ // fallback для file:// без secure context
+      const ta=document.createElement("textarea"); ta.value=text; ta.style.position="fixed"; ta.style.opacity="0";
+      document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove();
+    }
+    toast("Скопировано в буфер обмена");
+  }catch(e){ toast("Не удалось скопировать: "+e.message, true); }
+}
+
+/* ========================================================================
+   Обработчики событий
+   ======================================================================== */
+function bind(){
+  /* --- Переключатель темы --- */
+  el("themeToggle").onclick = toggleTheme;
+
+  /* --- Компактные ачивки: клик по чипу открывает поповер, клик вне — закрывает --- */
+  el("achChip").onclick = (e)=>{ e.stopPropagation(); toggleAchPopover(); };
+  document.addEventListener("click",(e)=>{
+    const wrap=el("achPopover"); if(!wrap || !wrap.classList.contains("open")) return;
+    if(!e.target.closest(".ach-chip-wrap")) toggleAchPopover(false);
+  });
+  window.addEventListener("keydown",(e)=>{ if(e.key==="Escape") toggleAchPopover(false); });
+
+  /* --- Ролёвка --- */
+  el("btnCopyPrompt").onclick = ()=> copyText(el("scPrompt").textContent);
+  el("btnRerollScenario").onclick = ()=>{
+    manualScenarioIndex = Math.floor(Math.random()*SCENARIOS.length);
+    renderScenario(); toast("Случайный сценарий (не влияет на «сегодня»)");
+  };
+  /* --- Главная кнопка: действие + таймер (toggle) ---
+     Idle: открыть ChatGPT в новой вкладке И запустить таймер.
+     Running: остановить и засчитать минуты (ChatGPT второй раз НЕ открываем). */
+  el("btnOpenChatGPT").onclick = ()=>{
+    if(isTimerRunning()){
+      stopSpeakTimer();            // ручной стоп = единственный засчёт (без двойного учёта)
+    }else{
+      window.open("https://chatgpt.com/","_blank","noopener");
+      startSpeakTimer();
+    }
+  };
+
+  /* --- Онбординг + сворачивание Настроек --- */
+  el("btnOnboardingSettings").onclick = openSettings;
+  el("settingsHead").onclick = ()=> setSettingsOpen(el("settingsBody").style.display==="none");
+  el("settingsHead").onkeydown = (e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); el("settingsHead").click(); } };
+
+  /* --- Аудитор --- */
+  el("btnAudit").onclick = async ()=>{
+    const transcript = el("txTranscript").value.trim();
+    if(!transcript){ toast("Вставь транскрипт разговора", true); return; }
+    const btn=el("btnAudit"); const old=btn.innerHTML;
+    btn.disabled=true; btn.innerHTML=`<span class="spinner"></span> Разбираю…`;
+    const pt = startProgress("auditResult", ["Отправка запроса…","Анализ речи…","Готовлю карточки…"]);
+    try{
+      const raw = await callLLM(AUDITOR_SYSTEM, transcript, 0.2);
+      let parsed;
+      try{ parsed = extractJSON(raw); }
+      catch(pe){
+        el("auditResult").innerHTML =
+          `<div class="empty" style="color:var(--red)">Не удалось разобрать JSON ответа модели.</div>
+           <details class="raw" open><summary>Сырой ответ модели</summary><pre>${escapeHtml(raw)}</pre></details>`;
+        auditData=null; currentAudit=null; deck=null;
+        return;
+      }
+      auditData = normalizeAudit(parsed); // терпимо к частичному JSON
+
+      // Разбор = практика: заводим запись сессии сразу (стрик засчитывается),
+      // карточки будут добавляться в неё по мере кликов.
+      const scTitle = SCENARIOS[currentScenarioIndex()][0];
+      state.sessions.push({
+        date: todayISO(), scenario: scTitle, transcript,
+        errorsCount: auditData.errors.length, cards: [],
+        say_aloud: auditData.say_aloud, pattern_focus: auditData.pattern_focus
+      });
+      currentAudit = { transcript, scenario: scTitle, sessionIdx: state.sessions.length-1 };
+      buildDeck();                       // собрать колоду
+      onSessionAudited(transcript);      // XP-хук (геймификация)
+      save(); renderAll(); renderAuditSections();
+    }catch(e){ el("auditResult").innerHTML=`<div class="empty" style="color:var(--red)">${escapeHtml(e.message)}</div>`; toast(e.message, true); }
+    finally{ stopProgress(pt); btn.disabled=false; btn.innerHTML=old; }
+  };
+
+  // делегирование кликов внутри блока результата аудита (список + колода + переключатель вида)
+  el("auditResult").addEventListener("click",(ev)=>{
+    const vb = ev.target.closest("[data-audit-view]");
+    if(vb){ auditView=vb.dataset.auditView; renderAuditSections(); return; }
+    const db = ev.target.closest("[data-deck]");
+    if(db){
+      const a=db.dataset.deck;
+      if(a==="add") deckAddCurrent();
+      else if(a==="skip") deckSkipCurrent();
+      else if(a==="next") deckNext();
+      else if(a==="prev") deckPrev();
+      else if(a==="done") clearAudit();
+      return;
+    }
+    const b = ev.target.closest("[data-act]");
+    if(b){
+      const sec=b.dataset.sec, act=b.dataset.act, i=b.dataset.i!==undefined?+b.dataset.i:null;
+      if(act==="add") addAuditItem(sec,i);
+      else if(act==="addall") addAuditSection(sec);
+      else if(act==="del") delAuditItem(sec,i);
+      else if(act==="edit") editAuditItem(sec,i);
+      return;
+    }
+    if(ev.target.id==="btnAuditDone"){ clearAudit(); }
+  });
+
+  // навигация колоды: свайп на тач-устройствах
+  let touchX0=null;
+  el("auditResult").addEventListener("touchstart",(ev)=>{ touchX0 = ev.changedTouches[0].clientX; }, {passive:true});
+  el("auditResult").addEventListener("touchend",(ev)=>{
+    if(touchX0===null || auditView!=="deck" || !deck) return;
+    const dx = ev.changedTouches[0].clientX - touchX0; touchX0=null;
+    if(Math.abs(dx)<45) return;
+    if(dx<0) deckNext(); else deckPrev();
+  }, {passive:true});
+
+  // навигация колоды: стрелки клавиатуры (когда фокус не в поле ввода)
+  window.addEventListener("keydown",(ev)=>{
+    if(auditView!=="deck" || !deck || !auditData) return;
+    const tag=(document.activeElement&&document.activeElement.tagName)||"";
+    if(tag==="TEXTAREA"||tag==="INPUT"||tag==="SELECT") return;
+    if(ev.key==="ArrowRight"){ deckNext(); }
+    else if(ev.key==="ArrowLeft"){ deckPrev(); }
+  });
+
+  /* --- SGR-оценка разговора (переиспользует транскрипт из #txTranscript) --- */
+  el("btnEvaluate").onclick = async ()=>{
+    const transcript = el("txTranscript").value.trim();
+    if(!transcript){ toast("Вставь транскрипт разговора (то же поле, что и для разбора)", true); return; }
+    const btn=el("btnEvaluate"); const old=btn.innerHTML;
+    btn.disabled=true; btn.innerHTML=`<span class="spinner"></span> Оцениваю…`;
+    const pt = startProgress("evalResult", ["Отправка запроса…","SGR-оценка речи…","Считаю composite…"]);
+    try{
+      const raw = await callLLM(EVALUATOR_SYSTEM, transcript, 0.2); // низкая температура для стабильности
+      let parsed;
+      try{ parsed = extractJSON(raw); }
+      catch(pe){
+        el("evalResult").innerHTML =
+          `<div class="empty" style="color:var(--red)">Не удалось разобрать JSON ответа модели.</div>
+           <details class="raw" open><summary>Сырой ответ модели</summary><pre>${escapeHtml(raw)}</pre></details>`;
+        evalResult=null;
+        return;
+      }
+      evalResult = normalizeEval(parsed); // терпимо к частичному JSON
+      onSessionEvaluated();               // XP-хук (геймификация)
+      renderEval();
+    }catch(e){ el("evalResult").innerHTML=`<div class="empty" style="color:var(--red)">${escapeHtml(e.message)}</div>`; toast(e.message, true); }
+    finally{ stopProgress(pt); btn.disabled=false; btn.innerHTML=old; }
+  };
+
+  /* --- Writing coach --- */
+  el("btnWriteCheck").onclick = async ()=>{
+    const text = el("txWriting").value.trim();
+    if(!text){ toast("Напиши текст для проверки", true); return; }
+    const btn=el("btnWriteCheck"); const old=btn.innerHTML;
+    btn.disabled=true; btn.innerHTML=`<span class="spinner"></span> Проверяю…`;
+    try{
+      const raw = await callLLM(COACH_SYSTEM, text, 0.3);
+      let obj;
+      try{ obj = extractJSON(raw); }
+      catch(pe){
+        el("coachOut").classList.add("active");
+        el("coachOut").innerHTML=`<div class="coach-block"><h3 style="color:var(--red)">Ошибка парсинга JSON</h3>
+          <details class="raw" open><summary>Сырой ответ</summary><pre>${escapeHtml(raw)}</pre></details></div>`;
+        return;
+      }
+      state.writingHistory.push({ date:todayISO(), original:text, edited:obj.edited||"", feedback:obj.feedback||[] });
+      save();
+      renderCoach(obj);
+    }catch(e){ toast(e.message, true); }
+    finally{ btn.disabled=false; btn.innerHTML=old; }
+  };
+
+  /* --- SRS: обзор карт --- */
+  el("btnBrowseCards").onclick = ()=>{ browserOpen=!browserOpen; renderCardsBrowser(); };
+  el("cardsBrowser").addEventListener("click",(ev)=>{
+    const delId=ev.target.dataset.delcard;
+    const restoreId=ev.target.dataset.restore;
+    if(delId){ if(confirm("Удалить эту карточку?")){ state.cards=state.cards.filter(c=>c.id!==delId); save(); renderAll(); } }
+    else if(restoreId){
+      const c=state.cards.find(x=>x.id===restoreId);
+      if(c){ c.suspended=false; c.lapses=0; c.interval=1; c.dueDate=todayISO(); save(); renderAll(); toast("Карточка возвращена в ротацию"); }
+    }
+  });
+
+  /* --- SRS: режим ревью --- */
+  el("btnStartReview").onclick = startReview;
+  el("btnShowAnswer").onclick = ()=>{
+    el("revAnswer").style.display="block";
+    el("revShowWrap").style.display="none";
+    el("revGrades").style.display="grid";
+  };
+  el("revGrades").addEventListener("click",(ev)=>{
+    const g=ev.target.closest("[data-grade]"); if(!g) return;
+    applyGrade(g.dataset.grade);
+  });
+
+  /* --- Метрики --- */
+  el("btnSaveMetric").onclick = ()=>{
+    const month=el("mMonth").value.trim(), artic=el("mArtic").value, mlt=el("mMlt").value;
+    if(!month){ toast("Укажи месяц (например 2026-07)", true); return; }
+    const existing = state.metrics.find(m=>m.month===month);
+    if(existing){ existing.artic=artic; existing.mlt=mlt; }
+    else state.metrics.push({month, artic, mlt});
+    state.metrics.sort((a,b)=> a.month.localeCompare(b.month));
+    save(); renderTelemetry();
+    el("mArtic").value=""; el("mMlt").value="";
+    toast("Замер сохранён");
+  };
+
+  /* --- Настройки --- */
+  el("inKey").addEventListener("change",()=>{ state.settings.apiKey=el("inKey").value.trim(); save(); toast("Ключ сохранён локально"); });
+  el("selModel").addEventListener("change",()=>{
+    const v=el("selModel").value;
+    el("inCustomModel").style.display = v==="__custom" ? "block":"none";
+    state.settings.model = v==="__custom" ? (el("inCustomModel").value.trim()||"anthropic/claude-sonnet-4.5") : v;
+    save();
+  });
+  el("inCustomModel").addEventListener("change",()=>{ state.settings.model=el("inCustomModel").value.trim(); save(); });
+  el("inBaseUrl").addEventListener("change",()=>{ state.settings.baseUrl=el("inBaseUrl").value.trim(); save(); toast("Эндпоинт сохранён"); });
+  el("inCardLimit").addEventListener("change",()=>{
+    const v=parseInt(el("inCardLimit").value,10);
+    state.settings.newCardLimit = (isNaN(v)||v<1) ? 15 : v;
+    el("inCardLimit").value = state.settings.newCardLimit;
+    save(); toast("Лимит сохранён");
+  });
+  el("inLeechThreshold").addEventListener("change",()=>{
+    const v=parseInt(el("inLeechThreshold").value,10);
+    state.settings.leechThreshold = (isNaN(v)||v<1) ? 4 : v;
+    el("inLeechThreshold").value = state.settings.leechThreshold;
+    save(); toast("Порог leech сохранён");
+  });
+
+  el("btnExport").onclick = ()=>{
+    const blob=new Blob([JSON.stringify(stateForFile(),null,2)],{type:"application/json"}); // apiKey исключён
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download=`english-cockpit-backup-${todayISO()}.json`;
+    a.click(); URL.revokeObjectURL(url); toast("Бэкап скачан. Ключ в бэкап не включается — введите заново после импорта");
+  };
+  el("btnImport").onclick = ()=> el("fileImport").click();
+  el("fileImport").onchange = (ev)=>{
+    const file=ev.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload = ()=>{
+      try{
+        const imported=JSON.parse(reader.result);
+        if(!imported || typeof imported!=="object") throw new Error("Неверный формат");
+        state = mergeLoadedState(imported); // сохраняет текущий apiKey из localStorage (в файле его нет)
+        save(); renderSettings(); renderCoach(null); auditData=null; currentAudit=null; evalResult=null;
+        el("auditResult").innerHTML=""; el("evalResult").innerHTML="";
+        renderAll(); toast("Данные импортированы ✓");
+      }catch(e){ toast("Ошибка импорта: "+e.message, true); }
+      el("fileImport").value="";
+    };
+    reader.readAsText(file);
+  };
+  el("btnReset").onclick = ()=>{
+    if(confirm("Удалить ВСЕ данные (стрик, карточки, историю, настройки)? Это необратимо.")){
+      if(confirm("Точно уверен? Сделай экспорт заранее, если сомневаешься.")){
+        state=defaultState(); save(); renderSettings(); renderCoach(null);
+        auditData=null; currentAudit=null; evalResult=null;
+        el("auditResult").innerHTML=""; el("evalResult").innerHTML=""; browserOpen=false;
+        renderAll(); toast("Данные сброшены");
+      }
+    }
+  };
+}
+
+/* ---------- Логика ревью ---------- */
+let reviewQueue=[], reviewIdx=0, reviewTotal=0;
+function startReview(){
+  reviewQueue = dueCards().sort(()=>Math.random()-0.5); // лёгкое перемешивание
+  reviewIdx=0; reviewTotal=reviewQueue.length; reviewAwarded=new Set(); // сброс дедупа XP за ревью
+  if(reviewTotal===0){ toast("Нет карточек к повтору"); return; }
+  el("reviewStage").classList.add("active");
+  el("cardsBrowser").style.display="none"; browserOpen=false;
+  showReviewCard();
+}
+function showReviewCard(){
+  if(reviewIdx>=reviewQueue.length){ endReview(); return; }
+  const c=reviewQueue[reviewIdx];
+  el("revProgress").textContent = `Карта ${reviewIdx+1} / ${reviewTotal}`;
+  el("revBadge").innerHTML = catBadge(catOf(c)); // бейдж категории карточки
+  el("revCloze").textContent = c.cloze;
+  el("revAnswer").style.display="none";
+  el("revAns").textContent = c.answer;
+  el("revExp").textContent = c.explanation||"";
+  el("revShowWrap").style.display="flex";
+  el("revGrades").style.display="none";
+}
+function applyGrade(grade){
+  const c=reviewQueue[reviewIdx];
+  gradeCard(c, grade);
+  let justSuspended=false;
+  if(grade==="again"){
+    // авто-suspend leech: провалов набралось >= порога
+    const threshold = state.settings.leechThreshold ?? 4;
+    if(!c.suspended && (c.lapses||0) >= threshold){ c.suspended=true; justSuspended=true; state.lastLeechDate=todayISO(); }
+    // не-suspended карта возвращается в конец очереди этой сессии
+    if(!c.suspended){ reviewQueue.push(c); reviewTotal++; }
+  }
+  onCardReviewed(c); // XP за реально-due повтор (с дедупом и суточным капом) + ачивки
+  save();
+  if(justSuspended){
+    toast(`Карточка отложена как leech (провалена ${c.lapses} раз) — возможно, плохо сформулирована. Вернуть можно в банке.`, true);
+  }
+  reviewIdx++;
+  renderSRS();
+  showReviewCard();
+}
+function endReview(){
+  el("reviewStage").classList.remove("active");
+  renderAll();
+  toast("Ревью завершено 👏");
+}
+
+/* ========================================================================
+   Старт
+   ======================================================================== */
+bind();
+renderSettings();
+setSettingsOpen(localStorage.getItem(SETTINGS_OPEN_KEY)==="1"); // Настройки свёрнуты по умолчанию
+renderAll();
+renderFsStatus();       // отрисовать статус папки (даже если API нет — покажет подсказку)
+restoreFolder();        // попытаться восстановить ранее подключённую папку (async)
+</script>

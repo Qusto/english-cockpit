@@ -1,0 +1,11 @@
+# Данные практики и бэкапы — никогда не коммитить (могут содержать личные данные)
+data/
+backups/
+state.json
+*-backup-*.json
+english-cockpit-backup*.json
+
+# Системное
+.DS_Store
+Thumbs.db
+*.log
