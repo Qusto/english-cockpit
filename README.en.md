@@ -10,6 +10,24 @@ The whole app is a single self-contained `cockpit.html` (all CSS/JS inlined, no 
 
 ---
 
+## 📸 Screenshots
+
+Home screen — daily roleplay, voice-chat prompt, streak, rank and XP:
+
+![English Cockpit — home screen](assets/hero.png)
+
+Spaced-repetition review of your cards (errors, idioms, connectors, gap-vocab):
+
+![Card review](assets/review.png)
+
+Dashboard: speaking time, activity, SGR score trend and 6-criteria breakdown:
+
+![Progress dashboard](assets/dashboard.png)
+
+Dark theme is available too:
+
+![Dark theme](assets/hero-dark.png)
+
 ## Features
 
 - **Daily roleplay** — 40 professional scenarios + a ready-made "strict interlocutor" prompt for voice chat (ChatGPT Advanced Voice).
