@@ -50,13 +50,14 @@ english-cockpit/
     index.html
     js/ (llm.js, anki.js, lexicon.js, mission.js, ...)
     css/
-  extension/            # Chrome MV3, plain JS (popup, content script, background)
-  shared/               # общие ES-модули: prompts.js, schemas.js — грузятся и в app/, и в extension/
+  extension/            # Chrome MV3, plain JS (content script, background, options)
+    lib/                # общие ES-модули (model.js, anki.js, llm.js) — MV3 видит только файлы
+                        # внутри каталога расширения; app/ импортирует их по HTTP из того же пути
   docs/
     prd_anki.md, план, решения
 ```
 
-- Без webpack/vite: нативные ES-модули работают и на `localhost:8787`, и в extension. Ноль билд-инфраструктуры.
+- Без webpack/vite: нативные ES-модули работают и на `localhost:8787`, и в extension. Ноль билд-инфраструктуры. Нюанс MV3: сервис-воркер импортирует модули только внутри каталога расширения → общий код лежит в `extension/lib/`, app/ подтягивает его по HTTP (`../extension/lib/…`).
 - v1 (`cockpit.html`) остаётся рабочим параллельно; миграция состояния v1 → v2 через экспорт JSON + импорт в Anki.
 
 Альтернатива (отклонена): сразу monorepo `apps/ + packages/` + бандлер — замедлит 2.1 без выигрыша для solo local-first продукта. К финальной структуре можно вернуться позже.
