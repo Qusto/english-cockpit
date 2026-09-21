@@ -10,11 +10,19 @@ import {
 } from "./model.js";
 
 export async function ankiInvoke(ankiUrl, action, params = {}) {
-  const res = await fetch(ankiUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, version: ANKI_CONNECT_VERSION, params }),
-  });
+  let res;
+  try {
+    res = await fetch(ankiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, version: ANKI_CONNECT_VERSION, params }),
+    });
+  } catch (e) {
+    throw new Error(
+      `нет связи с AnkiConnect (${ankiUrl}) — запусти Anki, установи AnkiConnect ` +
+      `и разреши этот origin в webCorsOriginList.`
+    );
+  }
   if (!res.ok) {
     throw new Error(
       `AnkiConnect ответил ${res.status}. Убедись, что Anki запущен, AnkiConnect установлен ` +
