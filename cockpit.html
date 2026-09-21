@@ -689,6 +689,13 @@ details.raw pre{background:var(--code-bg);border:1px solid var(--edge);border-ra
             <input type="file" id="fileImport" accept="application/json" style="display:none">
           </div>
           <div class="divider"></div>
+          <label class="field">Anki · AnkiConnect</label>
+          <div class="tiny faint" style="margin-bottom:8px">С v2 Anki — канонический SRS (localhost:8765). Cockpit теперь на порту 8787; разреши этот origin в webCorsOriginList AnkiConnect.</div>
+          <div class="btnrow" style="margin-top:0">
+            <button class="btn sm" id="btnAnkiCheck">Проверить связь</button>
+          </div>
+          <div class="tiny" id="ankiStatus" style="margin-top:6px"></div>
+          <div class="divider"></div>
           <button class="btn danger" id="btnReset">🗑 Сбросить все данные</button>
         </div>
       </div>
@@ -2111,6 +2118,29 @@ function drawSpark(id, vals){
 }
 
 /* ---------- Настройки ---------- */
+/* ---------- Anki: статус AnkiConnect (v2: канонический SRS) ---------- */
+const ANKI_URL = "http://localhost:8765";
+async function ankiInvoke(action, params={}){
+  const res = await fetch(ANKI_URL,{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({action,version:6,params})});
+  if(!res.ok) throw new Error("HTTP "+res.status);
+  const j = await res.json(); if(j.error) throw new Error(j.error); return j.result;
+}
+async function checkAnki(){
+  const s = el("ankiStatus");
+  s.textContent = "проверяю AnkiConnect…"; s.style.color="";
+  try{
+    const v = await ankiInvoke("version");
+    let due = "";
+    try{ const ids = await ankiInvoke("findCards",{query:"is:due"}); due = ` · к повтору: ${ids.length}`; }catch(_){ }
+    s.style.color = "var(--green)";
+    s.textContent = `AnkiConnect v${v}${due}`;
+  }catch(e){
+    s.style.color = "var(--red)";
+    s.textContent = "нет связи — запусти Anki с AnkiConnect и разреши origin http://localhost:8787";
+  }
+}
+
 function renderSettings(){
   el("inKey").value = state.settings.apiKey||"";
   const model = state.settings.model||"anthropic/claude-sonnet-4.5";
@@ -2209,6 +2239,9 @@ function bind(){
       startSpeakTimer();
     }
   };
+
+  /* --- Anki: проверка связи с AnkiConnect --- */
+  el("btnAnkiCheck").onclick = checkAnki;
 
   /* --- Онбординг + сворачивание Настроек --- */
   el("btnOnboardingSettings").onclick = openSettings;

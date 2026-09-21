@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "English Cockpit — Vocabulary Capture",
+  "version": "2.1.0",
+  "description": "Option+hover на слове → перевод и контекст, клавиша A → карточка в Anki. Часть English Cockpit 2.0.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "https://openrouter.ai/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "options_page": "options.html",
+  "action": {
+    "default_title": "English Cockpit Vocabulary Capture"
+  }
+}
