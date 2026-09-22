@@ -46,10 +46,11 @@ Dark theme is available too:
 1. Download `cockpit.html`.
 2. Open it by double-clicking **or** (recommended, for folder auto-save) run a local server:
    ```bash
-   python3 -m http.server 8765
-   # then open http://localhost:8765/cockpit.html
+   python3 -m http.server 8787
+   # then open http://localhost:8787/cockpit.html
    ```
    > The File System Access API (folder auto-save) works only over `http(s)`/`localhost`, not `file://`. When opened as a file, data lives in localStorage + manual JSON export/import.
+   > Port **8787** (not 8765): 8765 is reserved for AnkiConnect in Cockpit 2.0.
 3. Open **Settings** → paste your **API key** (e.g. [OpenRouter](https://openrouter.ai)) and pick a model.
 4. Train: roleplay → speak out loud → paste the transcript → debrief → review cards.
 
@@ -61,6 +62,12 @@ A Chromium-based browser (Chrome, Edge, Yandex) is recommended — that's where 
 - Practice data is stored locally (localStorage + an optional `data/state.json` in your chosen folder).
 - The only outbound requests go to the LLM endpoint you choose. No analytics, trackers, or telemetry.
 - Only ever paste your own key. Keep data files (`data/`, backups) out of public repositories.
+
+## Cockpit 2.0 (in development)
+
+- `extension/` — Chrome extension: `Option + hover` over a word → translation/context, press `A` → card into Anki via AnkiConnect (`localhost:8765`). Install: `chrome://extensions` → Developer mode → Load unpacked → the `extension/` folder.
+- `docs/` — the 2.0 PRD and implementation plan.
+- Cockpit Settings has a "Check AnkiConnect" button.
 
 ## Models
 
